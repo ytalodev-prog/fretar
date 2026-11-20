@@ -1,0 +1,16 @@
+{
+  "name": "fretar-mural",
+  "version": "1.0.0",
+  "description": "Fretar - mural de avisos entre notificantes e a portaria",
+  "main": "server/index.js",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "node --test"
+  },
+  "license": "UNLICENSED"
+}
