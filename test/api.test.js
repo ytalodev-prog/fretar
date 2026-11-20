@@ -10,6 +10,7 @@ const path = require('node:path');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'fretar-'));
 const config = require('../server/config');
 config.DATA_DIR = tmp;
+config.DATABASE_URL = '';
 const server = require('../server/index');
 
 let base;
@@ -38,7 +39,7 @@ test('fluxo completo: notificante avisa e portaria trata', async () => {
   const id = novo.data.aviso.id;
 
   assert.equal((await call('POST', '/api/login', { login: 'Portaria', password: 'errada' })).status, 401);
-  const por = await call('POST', '/api/login', { login: 'Portaria', password: 'Fretar#2026' });
+  const por = await call('POST', '/api/login', { login: 'Portaria', password: config.PORTARIA_PASSWORD });
   assert.equal(por.status, 200);
   assert.equal(por.data.usuario.role, 'portaria');
 

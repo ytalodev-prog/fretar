@@ -31,11 +31,11 @@ function isPortariaLogin(login) {
 }
 
 // Retorna { login, role } ou null
-function authenticate(login, password) {
+async function authenticate(login, password) {
   if (isPortariaLogin(login)) {
     return verifyPassword(password, PORTARIA_HASH) ? { login: config.PORTARIA_LOGIN, role: 'portaria' } : null;
   }
-  const user = store.findUser(login);
+  const user = await store.findUser(login);
   if (!user) {
     verifyPassword(password, DUMMY_HASH); // mesmo custo: nao revela se o login existe
     return null;
@@ -88,11 +88,11 @@ function parseCookies(header = '') {
   return out;
 }
 
-function sessionFromRequest(req) {
+async function sessionFromRequest(req) {
   const session = readToken(parseCookies(req.headers.cookie)[COOKIE]);
   if (!session) return null;
   // Conta de notificante apagada do banco? Sessao invalida.
-  if (session.role === 'notificante' && !store.findUser(session.login)) return null;
+  if (session.role === 'notificante' && !(await store.findUser(session.login))) return null;
   return session;
 }
 

@@ -3,5 +3,6 @@
 !.env.example
 data/
 node_modules/
+.vercel/
 .git/
 *.log

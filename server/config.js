@@ -31,10 +31,11 @@ const config = {
   PUBLIC_DIR: path.join(ROOT, 'public'),
   DATA_DIR: path.resolve(ROOT, process.env.DATA_DIR || 'data'),
   PORT: port,
+  DATABASE_URL: process.env.DATABASE_URL || '',
   PORTARIA_LOGIN: process.env.PORTARIA_LOGIN || 'Portaria',
   PORTARIA_PASSWORD: process.env.PORTARIA_PASSWORD || 'Fretar#2026',
   SESSION_SECRET: process.env.SESSION_SECRET || '',
-  IS_PROD: process.env.NODE_ENV === 'production',
+  IS_PROD: process.env.NODE_ENV === 'production' || process.env.VERCEL === '1',
   SESSION_HOURS: 12,
 };
 

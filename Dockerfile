@@ -1,6 +1,7 @@
 FROM node:24-alpine AS validation
 WORKDIR /app
-COPY package.json ./
+COPY package.json package-lock.json ./
+RUN npm ci
 COPY server/ ./server/
 COPY public/ ./public/
 COPY test/ ./test/
@@ -11,9 +12,10 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV DATA_DIR=/app/data
 WORKDIR /app
-COPY --chown=node:node package.json ./
-COPY --chown=node:node server/ ./server/
-COPY --chown=node:node public/ ./public/
+COPY --from=validation --chown=node:node /app/package.json ./
+COPY --from=validation --chown=node:node /app/node_modules/ ./node_modules/
+COPY --from=validation --chown=node:node /app/server/ ./server/
+COPY --from=validation --chown=node:node /app/public/ ./public/
 RUN mkdir -p /app/data && chown node:node /app/data
 USER node
 EXPOSE 3000

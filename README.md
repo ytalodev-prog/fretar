@@ -13,9 +13,10 @@ Mural de avisos com duas partes:
 
 ## Como rodar no VS Code
 
-Requisito: [Node.js](https://nodejs.org) 18 ou superior. **Não há dependências para instalar.**
+Requisito: [Node.js](https://nodejs.org) 24.
 
 ```bash
+npm ci           # instala o driver do Neon
 npm start        # sobe em http://localhost:3000
 npm run dev      # igual, reiniciando ao salvar arquivos
 npm test         # testes da API
@@ -30,14 +31,16 @@ fretar/
 ├── server/
 │   ├── index.js     # servidor HTTP, rotas da API e arquivos estáticos
 │   ├── auth.js      # senhas (scrypt) e sessão (cookie assinado)
-│   ├── store.js     # armazenamento em data/db.json
+│   ├── store.js     # JSON local ou PostgreSQL Neon
 │   └── config.js    # configurações e leitor de .env
+├── api/             # função Node para Vercel
 ├── public/          # frontend (HTML, CSS e JS puro)
 │   ├── index.html
 │   ├── css/style.css
 │   ├── js/app.js
 │   └── img/fretar-logo.png
 ├── test/api.test.js
+├── vercel.json
 ├── Dockerfile
 ├── compose.yaml
 ├── .env.example
@@ -59,32 +62,49 @@ fretar/
 
 ## Configuração local
 
-Copie `.env.example` para `.env` para trocar a porta, o login/senha da Portaria ou o segredo das sessões. Sem configuração, o acesso local da Portaria usa a senha padrão acima. O servidor recusa essa senha em produção. O `.env` é ignorado pelo Git.
+Copie `.env.example` para `.env` para configurar a porta e a conta da Portaria. Sem `DATABASE_URL`, o desenvolvimento local usa `data/db.json`; com `DATABASE_URL`, usa Neon. O `.env` é ignorado pelo Git.
 
-## Preparar deploy com Docker
+## Deploy na Vercel com Neon
 
-O projeto inclui `Dockerfile` e `compose.yaml`. A imagem usa Node.js 24, roda sem usuário root e executa `npm test` durante o build.
+Vercel fornece HTTPS automaticamente para os domínios `*.vercel.app` e para domínios personalizados configurados no projeto. O navegador usa cookies `Secure` nas implantações Vercel. O backend usa uma função Node e Neon PostgreSQL, pois o disco de uma função Vercel não é persistente.
 
-1. Copie `.env.example` para `.env` e preencha `PORTARIA_PASSWORD` com uma senha exclusiva de pelo menos 12 caracteres.
-2. Gere um segredo de sessão com:
+1. Crie um projeto PostgreSQL no Neon (pode ser pela integração Neon do Marketplace da Vercel) e conecte-o ao projeto Vercel.
+2. Importe este repositório na Vercel usando a raiz do projeto. O [vercel.json](./vercel.json) seleciona `public` como saída estática e `api/[...path].js` como função Node; `npm run build` executa os testes.
+3. Configure estas variáveis no projeto Vercel, em **Production** e também em **Preview** se for testar prévias:
 
-   ```bash
-   node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
-   ```
+   - `DATABASE_URL`: URL de conexão PostgreSQL do Neon.
+   - `PORTARIA_LOGIN`: normalmente `Portaria`.
+   - `PORTARIA_PASSWORD`: senha exclusiva de 12 a 72 caracteres, diferente da senha padrão.
+   - `SESSION_SECRET`: segredo aleatório de pelo menos 32 bytes. Gere localmente com `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"` e cadastre como variável secreta.
 
-   Cole o resultado em `SESSION_SECRET`. Não reutilize a senha da Portaria.
-3. Inicie o serviço:
+   Não coloque esses valores no Git. A aplicação cria as tabelas no Neon no primeiro acesso; confirme em `https://seu-dominio/api/health`.
 
-   ```bash
-   docker compose up --build -d
-   docker compose ps
-   ```
+4. Faça o deploy pela Vercel. HTTPS e certificado do domínio são gerenciados pela Vercel; no domínio personalizado, conclua a configuração DNS solicitada no painel.
 
-4. Confirme a saúde em `http://localhost:3000/api/health` e veja logs com `docker compose logs -f`.
+### Trazer os dados do Docker atual (opcional)
 
-O Compose define `NODE_ENV=production`, usa o volume persistente `fretar-data` para `data/db.json` e publica a porta indicada por `PORT` (3000 por padrão). Em hospedagens com proxy HTTPS, configure também um disco persistente montado em `/app/data`, defina os mesmos segredos como variáveis de ambiente e mantenha **uma única instância**. O armazenamento JSON local não suporta múltiplas réplicas; para escalar ou usar armazenamento efêmero, migre `server/store.js` para PostgreSQL ou outro banco gerenciado.
+Se quiser preservar notificantes e avisos já existentes, pare temporariamente o serviço para evitar novas gravações, copie o banco do volume para `data/db.json` e configure `DATABASE_URL` no `.env` local:
 
-Em produção o servidor recusa iniciar com a senha padrão, senha da Portaria menor que 12 caracteres ou `SESSION_SECRET` menor que 32 bytes. O endpoint `/api/health` pode ser usado como verificação de saúde. Configure HTTPS no provedor: cookies de sessão recebem `Secure` quando `NODE_ENV=production`.
+```bash
+docker compose stop fretar
+docker compose cp fretar:/app/data/db.json data/db.json
+npm run migrate:neon
+```
+
+O importador exige um banco Neon vazio. Ele copia hashes de senha (não senhas em texto puro), avisos e IDs. Depois, configure a mesma `DATABASE_URL`, `PORTARIA_LOGIN`, `PORTARIA_PASSWORD` e `SESSION_SECRET` na Vercel e faça o deploy. Não envie `data/db.json` ao Git.
+
+## Deploy local com Docker
+
+O projeto também inclui `Dockerfile` e `compose.yaml`. A imagem usa Node.js 24, executa `npm ci` e os testes durante o build, roda sem usuário root e mantém `data/db.json` no volume `fretar-data`. Sem `DATABASE_URL`, use:
+
+```bash
+docker compose up --build -d
+docker compose ps
+```
+
+Confira `http://localhost:3000/api/health`. Para usar Neon também no Docker, defina `DATABASE_URL` no `.env`; a persistência passa então para o PostgreSQL.
+
+Em produção o servidor recusa iniciar com a senha padrão, senha da Portaria menor que 12 caracteres ou `SESSION_SECRET` menor que 32 bytes. O endpoint `/api/health` verifica também a inicialização do armazenamento.
 
 ## Publicar o código no Git
 
@@ -102,6 +122,6 @@ O `.gitignore` exclui `data/` (banco e segredo) e `.env`; `.dockerignore` també
 ## Observações
 
 - O fluxo completo de cadastro, login, envio, recebimento, acompanhamento e conclusão é coberto pelos testes da API: execute `npm test`.
-- Sem volume persistente, contas e avisos podem ser perdidos ao recriar o contêiner. Faça backups do volume de dados.
-- Para uso com muitos usuários ou mais de uma instância, troque `server/store.js` por PostgreSQL mantendo as mesmas funções.
+- Em Docker sem Neon, contas e avisos dependem do volume `fretar-data`; faça backups regulares.
+- Na Vercel, configure `DATABASE_URL` para que os dados persistam entre execuções e instâncias.
 - As fontes (Bricolage Grotesque e Figtree) vêm do Google Fonts; sem internet, o site usa fontes do sistema.

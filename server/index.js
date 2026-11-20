@@ -7,7 +7,7 @@ const store = require('./store');
 const auth = require('./auth');
 
 config.validateProductionConfig();
-store.load();
+const storeReady = store.load().then(() => null, (error) => error);
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8',
@@ -85,8 +85,9 @@ function objectBody(value) {
 async function handleApi(req, res, url) {
   const method = req.method;
   const route = url.pathname;
-  const ip = req.socket.remoteAddress || 'ip';
-  const session = auth.sessionFromRequest(req);
+  const forwardedIp = process.env.VERCEL === '1' ? req.headers['x-forwarded-for'] : '';
+  const ip = (typeof forwardedIp === 'string' ? forwardedIp.split(',')[0].trim() : '') || req.socket.remoteAddress || 'ip';
+  const session = await auth.sessionFromRequest(req);
 
   if (route === '/api/health' && method === 'GET') return sendJson(res, 200, { ok: true });
 
@@ -100,8 +101,13 @@ async function handleApi(req, res, url) {
     const { login, password, error } = validateCredentials(body);
     if (error) return fail(res, 400, error);
     if (auth.isPortariaLogin(login)) return fail(res, 409, 'Esse nome de login é reservado. Escolha outro.');
-    if (store.findUser(login)) return fail(res, 409, 'Já existe uma conta com esse nome de login.');
-    store.createUser(login, auth.hashPassword(password));
+    if (await store.findUser(login)) return fail(res, 409, 'Já existe uma conta com esse nome de login.');
+    try {
+      await store.createUser(login, auth.hashPassword(password));
+    } catch (err) {
+      if (err && err.code === '23505') return fail(res, 409, 'Já existe uma conta com esse nome de login.');
+      throw err;
+    }
     const sessao = { login, role: 'notificante' };
     return sendJson(res, 201, { usuario: sessao }, { 'Set-Cookie': auth.sessionCookie(auth.createToken(sessao)) });
   }
@@ -111,7 +117,7 @@ async function handleApi(req, res, url) {
     const body = objectBody(await readJson(req));
     const login = cleanLogin(body.login);
     const password = String(body.password ?? '');
-    const sessao = login && password ? auth.authenticate(login, password) : null;
+    const sessao = login && password ? await auth.authenticate(login, password) : null;
     if (!sessao) return fail(res, 401, 'Login ou senha incorretos.');
     return sendJson(res, 200, { usuario: sessao }, { 'Set-Cookie': auth.sessionCookie(auth.createToken(sessao)) });
   }
@@ -125,8 +131,8 @@ async function handleApi(req, res, url) {
 
   if (route === '/api/avisos' && method === 'GET') {
     const avisos = session.role === 'portaria'
-      ? store.listAvisos()
-      : store.listAvisos({ autorKey: store.normalizeLogin(session.login) });
+      ? await store.listAvisos()
+      : await store.listAvisos({ autorKey: store.normalizeLogin(session.login) });
     return sendJson(res, 200, { avisos });
   }
 
@@ -138,26 +144,33 @@ async function handleApi(req, res, url) {
     const prioridade = PRIORIDADES.includes(body.prioridade) ? body.prioridade : 'normal';
     if (titulo.length < 3 || titulo.length > 80) return fail(res, 400, 'O título deve ter de 3 a 80 caracteres.');
     if (mensagem.length < 1 || mensagem.length > 600) return fail(res, 400, 'A mensagem deve ter de 1 a 600 caracteres.');
-    const aviso = store.createAviso({ autor: session.login, titulo, mensagem, prioridade });
+    const aviso = await store.createAviso({ autor: session.login, titulo, mensagem, prioridade });
     return sendJson(res, 201, { aviso });
   }
 
   const match = route.match(/^\/api\/avisos\/(\d+)$/);
   if (match) {
-    const aviso = store.getAviso(Number(match[1]));
+    const aviso = await store.getAviso(Number(match[1]));
     if (!aviso) return fail(res, 404, 'Aviso não encontrado.');
 
     if (method === 'PATCH') {
       if (session.role !== 'portaria') return fail(res, 403, 'Só a portaria pode alterar o andamento do aviso.');
       const body = objectBody(await readJson(req));
       if (!STATUS.includes(body.status)) return fail(res, 400, 'Status inválido.');
-      return sendJson(res, 200, { aviso: store.updateStatus(aviso.id, body.status) });
+      const atualizado = await store.updateStatus(aviso.id, body.status);
+      return atualizado ? sendJson(res, 200, { aviso: atualizado }) : fail(res, 404, 'Aviso não encontrado.');
     }
 
     if (method === 'DELETE') {
       const dono = session.role === 'notificante' && aviso.autorKey === store.normalizeLogin(session.login);
-      if (dono && aviso.status === 'novo') { store.deleteAviso(aviso.id); return sendJson(res, 200, { ok: true }); }
-      if (session.role === 'portaria' && aviso.status === 'concluido') { store.deleteAviso(aviso.id); return sendJson(res, 200, { ok: true }); }
+      if (dono && aviso.status === 'novo') {
+        const apagado = await store.deleteAviso(aviso.id, { autorKey: aviso.autorKey, status: 'novo' });
+        return apagado ? sendJson(res, 200, { ok: true }) : fail(res, 403, 'Esse aviso já foi visto pela portaria e não pode mais ser apagado.');
+      }
+      if (session.role === 'portaria' && aviso.status === 'concluido') {
+        const apagado = await store.deleteAviso(aviso.id, { status: 'concluido' });
+        return apagado ? sendJson(res, 200, { ok: true }) : fail(res, 403, 'Você não pode apagar esse aviso.');
+      }
       return fail(res, 403, dono ? 'Esse aviso já foi visto pela portaria e não pode mais ser apagado.' : 'Você não pode apagar esse aviso.');
     }
   }
@@ -192,6 +205,8 @@ function serveStatic(req, res, url) {
 // ---------- Servidor ----------
 const server = http.createServer(async (req, res) => {
   try {
+    const startupError = await storeReady;
+    if (startupError) throw startupError;
     const url = new URL(req.url, 'http://localhost');
     if (url.pathname.startsWith('/api/')) return await handleApi(req, res, url);
     if (req.method !== 'GET' && req.method !== 'HEAD') return fail(res, 405, 'Método não permitido.');

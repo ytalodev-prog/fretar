@@ -5,12 +5,17 @@
   "main": "server/index.js",
   "private": true,
   "engines": {
-    "node": ">=18"
+    "node": "24.x"
   },
   "scripts": {
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
-    "test": "node --test"
+    "test": "node --test",
+    "build": "node scripts/check-vercel-env.js && npm test",
+    "migrate:neon": "node scripts/migrate-json-to-neon.js"
   },
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@neondatabase/serverless": "^1.2.1"
+  }
 }
