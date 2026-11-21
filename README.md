@@ -72,7 +72,7 @@ Vercel fornece HTTPS automaticamente para os domínios `*.vercel.app` e para dom
 2. Importe este repositório na Vercel usando a raiz do projeto. O [vercel.json](./vercel.json) seleciona `public` como saída estática e `api/[...path].js` como função Node; `npm run build` executa os testes.
 3. Configure estas variáveis no projeto Vercel, em **Production** e também em **Preview** se for testar prévias:
 
-   - `DATABASE_URL`: URL de conexão PostgreSQL do Neon.
+   - `DATABASE_URL`: URL de conexão PostgreSQL do Neon. A integração Neon da Vercel com o prefixo `DATABASE` fornece `DATABASE_POSTGRES_PRISMA_URL`; o backend também reconhece essa variável automaticamente.
    - `PORTARIA_LOGIN`: normalmente `Portaria`.
    - `PORTARIA_PASSWORD`: senha exclusiva de 12 a 72 caracteres, diferente da senha padrão.
    - `SESSION_SECRET`: segredo aleatório de pelo menos 32 bytes. Gere localmente com `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"` e cadastre como variável secreta.
@@ -123,5 +123,5 @@ O `.gitignore` exclui `data/` (banco e segredo) e `.env`; `.dockerignore` també
 
 - O fluxo completo de cadastro, login, envio, recebimento, acompanhamento e conclusão é coberto pelos testes da API: execute `npm test`.
 - Em Docker sem Neon, contas e avisos dependem do volume `fretar-data`; faça backups regulares.
-- Na Vercel, configure `DATABASE_URL` para que os dados persistam entre execuções e instâncias.
+- Na Vercel, configure `DATABASE_URL` ou conecte a integração Neon (que fornece `DATABASE_POSTGRES_PRISMA_URL`) para que os dados persistam entre execuções e instâncias.
 - As fontes (Bricolage Grotesque e Figtree) vêm do Google Fonts; sem internet, o site usa fontes do sistema.

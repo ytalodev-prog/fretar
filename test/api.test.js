@@ -2,6 +2,7 @@
 // Teste de ponta a ponta da API, usando um banco temporario.
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
+const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -102,4 +103,21 @@ test('configuracao de producao exige senha e segredo proprios', () => {
     PORTARIA_PASSWORD: 'Senha-forte-da-portaria-2026',
     SESSION_SECRET: 'a'.repeat(64),
   }));
+});
+
+test('configuração aceita a variável de conexão criada pela integração Neon da Vercel', () => {
+  const connectionString = 'postgres://neon-vercel-test';
+  const resolved = execFileSync(process.execPath, [
+    '-e',
+    "process.stdout.write(require('./server/config').DATABASE_URL)",
+  ], {
+    cwd: config.ROOT,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      DATABASE_URL: '',
+      DATABASE_POSTGRES_PRISMA_URL: connectionString,
+    },
+  });
+  assert.equal(resolved, connectionString);
 });
