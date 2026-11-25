@@ -191,14 +191,14 @@ function serveStatic(req, res, url) {
       return fs.readFile(path.join(config.PUBLIC_DIR, 'index.html'), (e2, html) => {
         if (e2) return fail(res, 404, 'Não encontrado.');
         res.writeHead(200, { 'Content-Type': MIME['.html'], ...SECURITY_HEADERS });
-        res.end(html);
+        res.end(req.method === 'HEAD' ? undefined : html);
       });
     }
     res.writeHead(200, {
       'Content-Type': MIME[path.extname(file)] || 'application/octet-stream',
       'Cache-Control': 'no-cache', ...SECURITY_HEADERS,
     });
-    res.end(data);
+    res.end(req.method === 'HEAD' ? undefined : data);
   });
 }
 

@@ -16,6 +16,9 @@ function hashPassword(password) {
 
 function verifyPassword(password, stored) {
   const [saltHex, hashHex] = String(stored).split(':');
+  if (!/^[0-9a-f]{32}$/i.test(saltHex || '') || !/^[0-9a-f]{128}$/i.test(hashHex || '')) {
+    return false;
+  }
   const expected = Buffer.from(hashHex, 'hex');
   const actual = crypto.scryptSync(password, Buffer.from(saltHex, 'hex'), expected.length);
   return crypto.timingSafeEqual(actual, expected);
@@ -103,6 +106,6 @@ function sessionCookie(token) {
 const clearCookie = () => `${COOKIE}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${config.IS_PROD ? '; Secure' : ''}`;
 
 module.exports = {
-  hashPassword, authenticate, isPortariaLogin,
+  hashPassword, verifyPassword, authenticate, isPortariaLogin,
   createToken, sessionFromRequest, sessionCookie, clearCookie,
 };

@@ -80,6 +80,7 @@ test('cookie adulterado e rejeitado', async () => {
 test('health, arquivos estaticos e recursos ausentes', async () => {
   assert.equal((await call('GET', '/api/health')).status, 200);
   assert.equal((await call('GET', '/index.html')).status, 200);
+  assert.equal((await call('HEAD', '/index.html')).status, 200);
   assert.equal((await call('GET', '/img/nao-existe.png')).status, 404);
 });
 
@@ -120,4 +121,9 @@ test('configuração aceita a variável de conexão criada pela integração Neo
     },
   });
   assert.equal(resolved, connectionString);
+});
+
+test('hashes de senha malformados são rejeitados sem derrubar o login', () => {
+  const auth = require('../server/auth');
+  assert.equal(auth.verifyPassword('qualquer1', 'hash-malformado'), false);
 });
