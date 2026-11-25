@@ -105,6 +105,14 @@ img { max-width: 100%; display: block; }
 }
 .entrada-texto:hover { border-color: #B6C2CF; }
 .entrada-texto:focus { outline: none; border-color: var(--azul); box-shadow: 0 0 0 3px rgba(11,120,207,.18); }
+.campo-senha { position: relative; display: flex; align-items: center; }
+.campo-senha .entrada-texto { padding-right: 5.25rem; }
+.botao-senha {
+  position: absolute; right: .55rem; border: 0; border-radius: 8px;
+  padding: .35rem .55rem; background: transparent; color: var(--azul-texto);
+  font-size: .82rem; font-weight: 700; cursor: pointer;
+}
+.botao-senha:hover { background: var(--azul-fundo); }
 textarea.entrada-texto { resize: vertical; min-height: 7rem; }
 .erro { color: var(--erro); font-weight: 600; font-size: .92rem; min-height: 1.3rem; margin-bottom: .6rem; }
 

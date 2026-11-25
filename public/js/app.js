@@ -75,9 +75,27 @@
     const criando = state.aba === 'criar';
 
     const erro = h('p', { class: 'erro', role: 'alert' });
-    const login = h('input', { class: 'entrada-texto', id: 'login', name: 'login', type: 'text', required: true, maxlength: 40, autocomplete: 'username', autocapitalize: 'words' });
-    const senha = h('input', { class: 'entrada-texto', id: 'senha', name: 'senha', type: 'password', required: true, minlength: criando ? 6 : null, maxlength: 72, autocomplete: criando ? 'new-password' : 'current-password' });
-    const senha2 = criando ? h('input', { class: 'entrada-texto', id: 'senha2', type: 'password', required: true, maxlength: 72, autocomplete: 'new-password' }) : null;
+    const login = h('input', { class: 'entrada-texto', id: 'login', name: 'login', type: 'text', required: true, maxlength: 40, autocomplete: 'username', autocapitalize: 'none', spellcheck: false });
+    const senha = h('input', { class: 'entrada-texto', id: 'senha', name: 'password', type: 'password', required: true, minlength: criando ? 6 : null, maxlength: 72, autocomplete: criando ? 'new-password' : 'current-password', spellcheck: false });
+    const senha2 = criando ? h('input', { class: 'entrada-texto', id: 'senha2', name: 'password-confirmation', type: 'password', required: true, maxlength: 72, autocomplete: 'new-password', spellcheck: false }) : null;
+
+    function campoSenha(input) {
+      const botaoVisualizar = h('button', {
+        class: 'botao-senha',
+        type: 'button',
+        'aria-label': 'Mostrar senha',
+        'aria-pressed': 'false',
+        onclick: () => {
+          const mostrando = input.type === 'text';
+          input.type = mostrando ? 'password' : 'text';
+          botaoVisualizar.textContent = mostrando ? 'Mostrar' : 'Ocultar';
+          botaoVisualizar.setAttribute('aria-label', mostrando ? 'Mostrar senha' : 'Ocultar senha');
+          botaoVisualizar.setAttribute('aria-pressed', mostrando ? 'false' : 'true');
+        },
+      }, 'Mostrar');
+      return h('div', { class: 'campo-senha' }, input, botaoVisualizar);
+    }
+
     const botao = h('button', { class: 'btn btn-grande', type: 'submit' }, criando ? 'Criar conta' : 'Entrar');
 
     const form = h('form', {
@@ -89,7 +107,7 @@
         if (criando && senha.value !== senha2.value) { erro.textContent = 'As senhas não são iguais.'; return; }
         botao.disabled = true;
         try {
-          const d = await api(criando ? '/api/register' : '/api/login', { method: 'POST', corpo: { login: login.value, password: senha.value } });
+          const d = await api(criando ? '/api/register' : '/api/login', { method: 'POST', corpo: { login: login.value.trim(), password: senha.value } });
           state.usuario = d.usuario;
           state.vistos = null;
           await entrarNoApp();
@@ -100,9 +118,9 @@
         h('label', { for: 'login' }, criando ? 'Nome de login (seu setor ou local)' : 'Login'),
         login,
         criando && h('span', { class: 'dica' }, 'A portaria vê esse nome em cada aviso. Use algo que indique o local, como “Almoxarifado Bloco B”.')),
-      h('div', { class: 'campo' }, h('label', { for: 'senha' }, 'Senha'), senha,
+      h('div', { class: 'campo' }, h('label', { for: 'senha' }, 'Senha'), campoSenha(senha),
         criando && h('span', { class: 'dica' }, 'Mínimo de 6 caracteres.')),
-      criando && h('div', { class: 'campo' }, h('label', { for: 'senha2' }, 'Repita a senha'), senha2),
+      criando && h('div', { class: 'campo' }, h('label', { for: 'senha2' }, 'Repita a senha'), campoSenha(senha2)),
       erro, botao);
 
     const aba = (id, texto) => h('button', {
