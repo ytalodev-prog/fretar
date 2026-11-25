@@ -4,7 +4,6 @@ const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
 
-// Leitor minimo de .env (evita depender de pacotes externos)
 function loadEnvFile() {
   const file = path.join(ROOT, '.env');
   if (!fs.existsSync(file)) return;
