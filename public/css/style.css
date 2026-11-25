@@ -17,6 +17,7 @@
   --azul-fundo: #DCEEFC;
   --azul-escuro: #0A3F7C;
   --erro: #B3261E;
+  --erro-fundo: #FBE9E7;
 
   --titulo: "Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
   --texto: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -39,6 +40,8 @@ html { color-scheme: light; scroll-padding-top: env(safe-area-inset-top, 0px); }
     --azul-texto: #7FC0FA;
     --azul-fundo: #0F2A47;
     --azul-escuro: #071F3E;
+    --erro: #FF8A80;
+    --erro-fundo: #3A1D20;
   }
   html { color-scheme: dark; }
 }
@@ -55,6 +58,8 @@ html { color-scheme: light; scroll-padding-top: env(safe-area-inset-top, 0px); }
   --azul-texto: #7FC0FA;
   --azul-fundo: #0F2A47;
   --azul-escuro: #071F3E;
+  --erro: #FF8A80;
+  --erro-fundo: #3A1D20;
   color-scheme: dark;
 }
 body {
@@ -86,14 +91,16 @@ img { max-width: 100%; display: block; }
 .btn:hover { background: var(--azul-escuro); transform: translateY(-1px); box-shadow: 0 9px 22px rgba(11,120,207,.20); }
 .btn:active { transform: translateY(1px); box-shadow: none; }
 .btn[disabled] { opacity: .6; cursor: progress; }
-.btn-claro { background: transparent; color: var(--tinta); border-color: var(--linha); box-shadow: none; }
+.btn-claro { background: var(--superficie); color: var(--tinta); border-color: var(--linha); box-shadow: none; }
 .btn-claro:hover { background: var(--papel); border-color: var(--tinta-suave); }
 .btn-laranja { background: var(--laranja); color: #2B1700; }
 .btn-laranja:hover { background: #DB7A05; }
 .btn-verde { background: var(--verde); color: #12290A; }
 .btn-verde:hover { background: #63A611; }
-.btn-perigo { background: transparent; color: var(--erro); border-color: transparent; padding-inline: .7rem; }
-.btn-perigo:hover { background: #FBE9E7; }
+.btn-perigo { background: var(--erro-fundo); color: var(--erro); border-color: var(--erro); padding-inline: .7rem; }
+.btn-perigo:hover { background: #8C1D18; color: #fff; }
+.btn-alerta { background: var(--laranja-fundo); color: var(--laranja-texto); border-color: var(--laranja); box-shadow: none; }
+.btn-alerta:hover { background: var(--laranja); color: #2B1700; }
 .btn-grande { padding: .8rem 1.4rem; font-size: 1rem; width: 100%; }
 
 .campo { display: grid; gap: .35rem; margin-bottom: 1rem; }
@@ -224,6 +231,12 @@ textarea.entrada-texto { resize: vertical; min-height: 7rem; }
 }
 .painel.fixo { position: sticky; top: 5.5rem; }
 .contador { text-align: right; }
+.horarios { border: 1px solid var(--linha); border-radius: 12px; padding: .8rem; margin: 0 0 1rem; }
+.horarios legend { font-weight: 700; padding: 0 .25rem; }
+.horarios > .dica { margin-bottom: .65rem; }
+.horarios-campos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+.horarios-campos .campo { margin: 0; }
+.horarios-campos input { min-width: 0; }
 .prioridades { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; border: 0; padding: 0; margin: 0 0 1rem; }
 .prioridades legend { font-weight: 600; margin-bottom: .35rem; padding: 0; }
 .prioridade input { position: absolute; opacity: 0; pointer-events: none; }
@@ -278,7 +291,12 @@ textarea.entrada-texto { resize: vertical; min-height: 7rem; }
 .origem { font-weight: 700; font-size: 1.02rem; overflow-wrap: anywhere; }
 .etiqueta { font-size: .8rem; font-weight: 700; padding: .1rem .55rem; border-radius: 999px; background: var(--cor-fundo); color: var(--cor-texto); }
 .aviso h3 { font-size: 1.2rem; overflow-wrap: anywhere; }
-.aviso .mensagem { color: #2A3A55; white-space: pre-wrap; overflow-wrap: anywhere; max-width: 60ch; }
+.aviso .mensagem { color: var(--tinta); white-space: pre-wrap; overflow-wrap: anywhere; max-width: 60ch; }
+.aviso-horario {
+  display: flex; flex-wrap: wrap; gap: .2rem .4rem; align-items: center;
+  margin: 0; padding: .45rem .65rem; border-radius: 9px;
+  background: var(--cor-fundo); color: var(--cor-texto); font-size: .92rem;
+}
 .aviso-rodape { display: flex; align-items: center; justify-content: space-between; gap: .5rem; flex-wrap: wrap; margin-top: .2rem; }
 .tempo { font-size: .85rem; color: var(--tinta-suave); }
 .status { font-size: .82rem; font-weight: 600; color: var(--tinta-suave); display: inline-flex; align-items: center; gap: .35rem; }
@@ -294,8 +312,13 @@ textarea.entrada-texto { resize: vertical; min-height: 7rem; }
 /* ---------- Avisos rapidos ---------- */
 .toasts { position: fixed; right: 1rem; bottom: 1rem; display: grid; gap: .5rem; z-index: 20; max-width: min(92vw, 22rem); }
 .toast { background: var(--tinta); color: #fff; padding: .75rem 1rem; border-radius: 12px; box-shadow: 0 6px 20px rgba(18,35,63,.3); border-left: 6px solid var(--azul); }
-.toast.erro-t { border-left-color: var(--laranja); }
+.toast.erro-t { border-left-color: var(--erro); }
 .toast.ok-t { border-left-color: var(--verde); }
+.toast { font-weight: 600; }
+.mural-cabecalho { display: flex; justify-content: space-between; align-items: start; gap: 1rem; flex-wrap: wrap; }
+.alertas-controle { display: flex; justify-content: flex-end; }
+.alertas-estado { padding: .45rem .75rem; border-radius: 10px; background: var(--superficie); color: var(--tinta-suave); border: 1px solid var(--linha); font-size: .88rem; }
+.alertas-estado.ativo { color: var(--verde-texto); background: var(--verde-fundo); border-color: var(--verde); font-weight: 700; }
 
 /* Superficies seguem o tema claro ou escuro */
 .entrada-texto { background: var(--superficie); }
@@ -311,15 +334,11 @@ textarea.entrada-texto { resize: vertical; min-height: 7rem; }
   :root:not([data-theme="light"]) .topo {
     background: rgba(22,37,59,.94);
   }
-  :root:not([data-theme="light"]) .aviso .mensagem {
-    color: var(--tinta);
-  }
   :root:not([data-theme="light"]) body {
     background-image: radial-gradient(circle at 1px 1px, rgba(232,238,247,.055) 1px, transparent 0);
   }
 }
 :root[data-theme="dark"] .topo { background: rgba(22,37,59,.94); }
-:root[data-theme="dark"] .aviso .mensagem { color: var(--tinta); }
 :root[data-theme="dark"] body {
   background-image: radial-gradient(circle at 1px 1px, rgba(232,238,247,.055) 1px, transparent 0);
 }
@@ -331,6 +350,11 @@ textarea.entrada-texto { resize: vertical; min-height: 7rem; }
   .entrada-marca .papeis { display: none; }
   .duas-colunas { grid-template-columns: 1fr; }
   .painel.fixo { position: static; }
+}
+@media (max-width: 480px) {
+  .horarios-campos { grid-template-columns: 1fr; }
+  .alertas-controle { justify-content: stretch; width: 100%; }
+  .alertas-controle > * { width: 100%; text-align: center; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }

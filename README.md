@@ -60,6 +60,8 @@ fretar/
 | PATCH | `/api/avisos/:id` | portaria | Muda status: `novo`, `visto`, `concluido` |
 | DELETE | `/api/avisos/:id` | dono (se `novo`) ou portaria (se `concluido`) | Apaga aviso |
 
+Ao enviar um aviso, o notificante pode informar `horarioInicio` e/ou `horarioFim` no formato `HH:MM`; os dois campos são opcionais e aparecem em destaque no mural. A portaria recebe um alerta visual quando chegam avisos novos. Para receber também notificações do navegador em segundo plano, use **Ativar alertas** no mural e permita as notificações; mantenha o Fretar aberto.
+
 ## Configuração local
 
 Copie `.env.example` para `.env` para configurar a porta e a conta da Portaria. Sem `DATABASE_URL`, o desenvolvimento local usa `data/db.json`; com `DATABASE_URL`, usa Neon. O `.env` é ignorado pelo Git.

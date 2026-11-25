@@ -34,8 +34,12 @@ test('fluxo completo: notificante avisa e portaria trata', async () => {
   assert.equal((await call('POST', '/api/register', { login: 'almoxarifado b', password: 'outra123' })).status, 409);
   assert.equal((await call('POST', '/api/register', { login: 'portaria', password: 'qualquer1' })).status, 409);
 
-  const novo = await call('POST', '/api/avisos', { titulo: 'Entrega', mensagem: 'Chegou material', prioridade: 'urgente' }, dono);
+  const novo = await call('POST', '/api/avisos', {
+    titulo: 'Entrega', mensagem: 'Chegou material', horarioInicio: '08:30', horarioFim: '10:00', prioridade: 'urgente',
+  }, dono);
   assert.equal(novo.status, 201);
+  assert.equal(novo.data.aviso.horarioInicio, '08:30');
+  assert.equal(novo.data.aviso.horarioFim, '10:00');
   const id = novo.data.aviso.id;
 
   assert.equal((await call('POST', '/api/login', { login: 'Portaria', password: 'errada' })).status, 401);
@@ -60,6 +64,21 @@ test('fluxo completo: notificante avisa e portaria trata', async () => {
   assert.equal((await call('GET', '/api/avisos', null, dono)).data.avisos[0].status, 'visto');
   assert.equal((await call('PATCH', `/api/avisos/${id}`, { status: 'concluido' }, por.cookie)).status, 200);
   assert.equal((await call('DELETE', `/api/avisos/${id}`, null, por.cookie)).status, 200);
+});
+
+test('horários opcionais do aviso validam o formato HH:MM', async () => {
+  const cadastro = await call('POST', '/api/register', { login: 'Expedição', password: 'segredo1' });
+  const invalido = await call('POST', '/api/avisos', {
+    titulo: 'Janela de entrega', mensagem: 'Receber carga', horarioInicio: '25:30',
+  }, cadastro.cookie);
+  assert.equal(invalido.status, 400);
+
+  const semHorario = await call('POST', '/api/avisos', {
+    titulo: 'Aviso sem horário', mensagem: 'Atender quando possível',
+  }, cadastro.cookie);
+  assert.equal(semHorario.status, 201);
+  assert.equal(semHorario.data.aviso.horarioInicio, '');
+  assert.equal(semHorario.data.aviso.horarioFim, '');
 });
 
 test('notificante so ve os proprios avisos e rotas exigem login', async () => {

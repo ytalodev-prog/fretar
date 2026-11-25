@@ -49,9 +49,28 @@
   }
 
   function avisar(texto, tipo = '') {
-    const t = h('div', { class: `toast ${tipo}` }, texto);
+    const t = h('div', { class: `toast ${tipo}`, role: tipo === 'erro-t' ? 'alert' : 'status' }, texto);
     toasts.append(t);
     setTimeout(() => t.remove(), 4500);
+  }
+
+  function alertarNoNavegador(aviso) {
+    if (!document.hidden || !('Notification' in window) || Notification.permission !== 'granted') return;
+    try {
+      const notificacao = new Notification(`Novo aviso: ${aviso.titulo}`, {
+        body: `${aviso.autor}${aviso.horarioInicio || aviso.horarioFim ? ` · ${resumoHorario(aviso)}` : ''}`,
+        tag: `fretar-${aviso.id}`,
+      });
+      notificacao.onclick = () => { window.focus(); notificacao.close(); };
+    } catch {
+      avisar('O navegador não conseguiu exibir a notificação.', 'erro-t');
+    }
+  }
+
+  function resumoHorario(aviso) {
+    if (aviso.horarioInicio && aviso.horarioFim) return `${aviso.horarioInicio} às ${aviso.horarioFim}`;
+    if (aviso.horarioInicio) return `A partir de ${aviso.horarioInicio}`;
+    return `Até ${aviso.horarioFim}`;
   }
 
   function tempo(iso) {
@@ -161,6 +180,7 @@
   async function sair() {
     try { await api('/api/logout', { method: 'POST' }); } catch { /* sai mesmo assim */ }
     state.usuario = null; state.avisos = []; state.vistos = null; state.aba = 'entrar';
+    state.filtro = 'novo'; state.origem = ''; state.busca = ''; state.recentes = new Set();
     telaEntrada();
   }
 
@@ -168,7 +188,9 @@
     await carregarAvisos();
     state.usuario.role === 'portaria' ? telaPortaria() : telaNotificante();
     clearInterval(state.timer);
-    state.timer = setInterval(() => { if (!document.hidden) atualizar(); }, 10000);
+    state.timer = setInterval(() => {
+      if (!document.hidden || (state.usuario && state.usuario.role === 'portaria')) atualizar();
+    }, 10000);
   }
 
   async function carregarAvisos() {
@@ -178,7 +200,10 @@
       if (state.vistos) {
         const chegadas = avisos.filter((a) => !state.vistos.has(a.id));
         state.recentes = new Set(chegadas.map((a) => a.id));
-        if (chegadas.length) avisar(chegadas.length === 1 ? `Novo aviso de ${chegadas[0].autor}` : `${chegadas.length} novos avisos no mural`, 'ok-t');
+        if (chegadas.length) {
+          avisar(chegadas.length === 1 ? `Novo aviso de ${chegadas[0].autor}` : `${chegadas.length} novos avisos no mural`, 'ok-t');
+          chegadas.forEach(alertarNoNavegador);
+        }
       }
       state.vistos = ids;
     }
@@ -190,7 +215,12 @@
       await carregarAvisos();
       state.usuario.role === 'portaria' ? desenharMural() : desenharMeusAvisos();
     } catch (e) {
-      if (e.status === 401) { state.usuario = null; telaEntrada(); avisar('Sua sessão terminou. Entre novamente.', 'erro-t'); }
+      if (e.status === 401) {
+        state.usuario = null;
+        state.filtro = 'novo'; state.origem = ''; state.busca = ''; state.recentes = new Set();
+        telaEntrada();
+        avisar('Sua sessão terminou. Entre novamente.', 'erro-t');
+      }
     }
   }
 
@@ -203,6 +233,9 @@
         h('span', { class: 'etiqueta' }, PRIORIDADE[aviso.prioridade])),
       h('h3', null, aviso.titulo),
       h('p', { class: 'mensagem' }, aviso.mensagem),
+      (aviso.horarioInicio || aviso.horarioFim) && h('p', { class: 'aviso-horario' },
+        h('span', null, 'Horário necessário:'),
+        h('strong', null, resumoHorario(aviso))),
       h('div', { class: 'aviso-rodape' },
         h('span', { class: 'tempo', title: dataCompleta(aviso.criadoEm) }, tempo(aviso.criadoEm)),
         h('span', { class: `status ${aviso.status}` }, rotuloStatus(papel, aviso.status))),
@@ -215,6 +248,8 @@
     const erro = h('p', { class: 'erro', role: 'alert' });
     const titulo = h('input', { class: 'entrada-texto', id: 'titulo', type: 'text', maxlength: 80, required: true, placeholder: 'Ex.: Entrega de material' });
     const mensagem = h('textarea', { class: 'entrada-texto', id: 'mensagem', maxlength: 600, required: true, placeholder: 'Conte o que a portaria precisa saber ou fazer.' });
+    const horarioInicio = h('input', { class: 'entrada-texto', id: 'horario-inicio', name: 'horarioInicio', type: 'time' });
+    const horarioFim = h('input', { class: 'entrada-texto', id: 'horario-fim', name: 'horarioFim', type: 'time' });
     const contador = h('span', { class: 'dica contador' }, '0 / 600');
     mensagem.addEventListener('input', () => { contador.textContent = `${mensagem.value.length} / 600`; });
     const botao = h('button', { class: 'btn btn-grande', type: 'submit' }, 'Enviar aviso');
@@ -234,6 +269,7 @@
         try {
           await api('/api/avisos', { method: 'POST', corpo: {
             titulo: titulo.value, mensagem: mensagem.value,
+            horarioInicio: horarioInicio.value, horarioFim: horarioFim.value,
             prioridade: form.elements.prioridade.value } });
           form.reset(); contador.textContent = '0 / 600';
           avisar('Aviso enviado para a portaria.', 'ok-t');
@@ -244,6 +280,12 @@
     },
       h('div', { class: 'campo' }, h('label', { for: 'titulo' }, 'Título'), titulo),
       h('div', { class: 'campo' }, h('label', { for: 'mensagem' }, 'Mensagem'), mensagem, contador),
+      h('fieldset', { class: 'horarios' },
+        h('legend', null, 'Horário necessário (opcional)'),
+        h('p', { class: 'dica' }, 'Informe um horário ou um intervalo para a portaria se programar.'),
+        h('div', { class: 'horarios-campos' },
+          h('div', { class: 'campo' }, h('label', { for: 'horario-inicio' }, 'A partir das'), horarioInicio),
+          h('div', { class: 'campo' }, h('label', { for: 'horario-fim' }, 'Até'), horarioFim))),
       h('fieldset', { class: 'prioridades' }, h('legend', null, 'Prioridade'),
         radio('informativo', false), radio('normal', true), radio('urgente', false)),
       erro, botao);
@@ -279,15 +321,46 @@
   }
 
   // ---------- Portaria (recebedor) ----------
+  function controleAlertas() {
+    if (!('Notification' in window)) {
+      return h('span', { class: 'alertas-estado' }, 'Alertas do navegador indisponíveis');
+    }
+    if (Notification.permission === 'granted') {
+      return h('span', { class: 'alertas-estado ativo', role: 'status' }, 'Alertas do navegador ativados');
+    }
+    if (Notification.permission === 'denied') {
+      return h('span', { class: 'alertas-estado' }, 'Alertas bloqueados nas configurações do navegador');
+    }
+    return h('button', {
+      class: 'btn btn-alerta',
+      type: 'button',
+      onclick: async () => {
+        try {
+          const permissao = await Notification.requestPermission();
+          ui.alertas.replaceChildren(controleAlertas());
+          avisar(permissao === 'granted'
+            ? 'Alertas ativados. Deixe o Fretar aberto para receber notificações.'
+            : 'Permita as notificações do Fretar nas configurações do navegador.', permissao === 'granted' ? 'ok-t' : 'erro-t');
+        } catch {
+          avisar('Não foi possível ativar as notificações do navegador.', 'erro-t');
+        }
+      },
+    }, 'Ativar alertas');
+  }
+
   function telaPortaria() {
     ui.filtros = h('div', { class: 'filtros', role: 'group', 'aria-label': 'Filtrar por andamento' });
     ui.origem = h('select', { class: 'entrada-texto', 'aria-label': 'Filtrar por origem', onchange: (e) => { state.origem = e.target.value; desenharMural(); } });
-    ui.busca = h('input', { class: 'entrada-texto', type: 'search', placeholder: 'Buscar nos avisos', 'aria-label': 'Buscar nos avisos', value: state.busca,
+    ui.busca = h('input', { class: 'entrada-texto', type: 'search', name: 'busca', autocomplete: 'off', placeholder: 'Buscar nos avisos', 'aria-label': 'Buscar nos avisos', value: state.busca,
       oninput: (e) => { state.busca = e.target.value; desenharMural(); } });
+    ui.alertas = h('div', { class: 'alertas-controle' }, controleAlertas());
     ui.lista = h('ul', { class: 'mural' });
     app.replaceChildren(topo(), h('main', { class: 'principal' },
-      h('h2', null, 'Mural da portaria'),
-      h('p', { class: 'sub' }, 'Todos os avisos enviados pelos setores. A lista atualiza sozinha.'),
+      h('div', { class: 'mural-cabecalho' },
+        h('div', null,
+          h('h2', null, 'Mural da portaria'),
+          h('p', { class: 'sub' }, 'Todos os avisos enviados pelos setores. A lista atualiza sozinha.')),
+        ui.alertas),
       h('div', { class: 'barra' }, ui.filtros, h('span', { class: 'espaco' }), ui.origem, ui.busca),
       ui.lista));
     desenharMural();

@@ -76,6 +76,7 @@ function validateCredentials(body) {
 
 const PRIORIDADES = ['informativo', 'normal', 'urgente'];
 const STATUS = ['novo', 'visto', 'concluido'];
+const HORARIO_RE = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 
 function objectBody(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
@@ -141,10 +142,15 @@ async function handleApi(req, res, url) {
     const body = objectBody(await readJson(req));
     const titulo = String(body.titulo ?? '').trim();
     const mensagem = String(body.mensagem ?? '').trim();
+    const horarioInicio = String(body.horarioInicio ?? '').trim();
+    const horarioFim = String(body.horarioFim ?? '').trim();
     const prioridade = PRIORIDADES.includes(body.prioridade) ? body.prioridade : 'normal';
     if (titulo.length < 3 || titulo.length > 80) return fail(res, 400, 'O título deve ter de 3 a 80 caracteres.');
     if (mensagem.length < 1 || mensagem.length > 600) return fail(res, 400, 'A mensagem deve ter de 1 a 600 caracteres.');
-    const aviso = await store.createAviso({ autor: session.login, titulo, mensagem, prioridade });
+    if ((horarioInicio && !HORARIO_RE.test(horarioInicio)) || (horarioFim && !HORARIO_RE.test(horarioFim))) {
+      return fail(res, 400, 'Informe os horários no formato HH:MM.');
+    }
+    const aviso = await store.createAviso({ autor: session.login, titulo, mensagem, horarioInicio, horarioFim, prioridade });
     return sendJson(res, 201, { aviso });
   }
 
