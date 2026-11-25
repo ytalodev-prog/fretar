@@ -21,6 +21,17 @@ function loadEnvFile() {
 
 loadEnvFile();
 
+function resolveDatabaseUrl(env = process.env) {
+  return (
+    env.DATABASE_URL ||
+    env.DATABASE_POSTGRES_URL ||
+    env.DATABASE_POSTGRES_PRISMA_URL ||
+    env.POSTGRES_URL ||
+    env.POSTGRES_URL_NON_POOLING ||
+    ''
+  );
+}
+
 const port = process.env.PORT ? Number(process.env.PORT) : 3000;
 if (!Number.isInteger(port) || port < 1 || port > 65535) {
   throw new Error('PORT deve ser um número inteiro entre 1 e 65535.');
@@ -31,13 +42,7 @@ const config = {
   PUBLIC_DIR: path.join(ROOT, 'public'),
   DATA_DIR: path.resolve(ROOT, process.env.DATA_DIR || 'data'),
   PORT: port,
-  DATABASE_URL:
-    process.env.DATABASE_URL ||
-    process.env.DATABASE_POSTGRES_URL ||
-    process.env.DATABASE_POSTGRES_PRISMA_URL ||
-    process.env.POSTGRES_URL ||
-    process.env.POSTGRES_URL_NON_POOLING ||
-    '',
+  DATABASE_URL: resolveDatabaseUrl(),
   PORTARIA_LOGIN: process.env.PORTARIA_LOGIN || 'Portaria',
   PORTARIA_PASSWORD: process.env.PORTARIA_PASSWORD || 'Fretar#2026',
   SESSION_SECRET: process.env.SESSION_SECRET || '',
@@ -60,4 +65,4 @@ function validateProductionConfig(settings = config) {
   }
 }
 
-module.exports = { ...config, validateProductionConfig };
+module.exports = { ...config, validateProductionConfig, resolveDatabaseUrl };

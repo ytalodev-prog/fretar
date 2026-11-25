@@ -2,7 +2,6 @@
 // Teste de ponta a ponta da API, usando um banco temporario.
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
-const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -106,21 +105,22 @@ test('configuracao de producao exige senha e segredo proprios', () => {
   }));
 });
 
-test('configuração aceita a variável de conexão criada pela integração Neon da Vercel', () => {
+test('configuração aceita variáveis de conexão da Neon e mantém prioridade de DATABASE_URL', () => {
+  const { resolveDatabaseUrl } = config;
   const connectionString = 'postgres://neon-vercel-test';
-  const resolved = execFileSync(process.execPath, [
-    '-e',
-    "process.stdout.write(require('./server/config').DATABASE_URL)",
-  ], {
-    cwd: config.ROOT,
-    encoding: 'utf8',
-    env: {
-      ...process.env,
-      DATABASE_URL: '',
-      DATABASE_POSTGRES_PRISMA_URL: connectionString,
-    },
-  });
-  assert.equal(resolved, connectionString);
+  for (const name of [
+    'DATABASE_URL',
+    'DATABASE_POSTGRES_URL',
+    'DATABASE_POSTGRES_PRISMA_URL',
+    'POSTGRES_URL',
+    'POSTGRES_URL_NON_POOLING',
+  ]) {
+    assert.equal(resolveDatabaseUrl({ [name]: connectionString }), connectionString);
+  }
+  assert.equal(resolveDatabaseUrl({
+    DATABASE_URL: 'postgres://primary',
+    DATABASE_POSTGRES_PRISMA_URL: connectionString,
+  }), 'postgres://primary');
 });
 
 test('hashes de senha malformados são rejeitados sem derrubar o login', () => {
