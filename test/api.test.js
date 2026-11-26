@@ -12,7 +12,11 @@ const config = require('../server/config');
 config.DATA_DIR = tmp;
 config.DATABASE_URL = '';
 const server = require('../server/index');
+const previousVercel = process.env.VERCEL;
+process.env.VERCEL = '';
 const vercelHandler = require('../api/index');
+if (previousVercel === undefined) delete process.env.VERCEL;
+else process.env.VERCEL = previousVercel;
 const vercelServer = require('node:http').createServer(vercelHandler);
 
 let base;
