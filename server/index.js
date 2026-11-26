@@ -169,9 +169,9 @@ async function handleApi(req, res, url) {
 
     if (method === 'DELETE') {
       const dono = session.role === 'notificante' && aviso.autorKey === store.normalizeLogin(session.login);
-      if (dono && aviso.status === 'novo') {
-        const apagado = await store.deleteAviso(aviso.id, { autorKey: aviso.autorKey, status: 'novo' });
-        return apagado ? sendJson(res, 200, { ok: true }) : fail(res, 403, 'Esse aviso já foi visto pela portaria e não pode mais ser apagado.');
+      if (dono) {
+        const apagado = await store.deleteAviso(aviso.id, { autorKey: aviso.autorKey });
+        return apagado ? sendJson(res, 200, { ok: true }) : fail(res, 404, 'Aviso não encontrado.');
       }
       if (session.role === 'portaria' && aviso.status === 'concluido') {
         const apagado = await store.deleteAviso(aviso.id, { status: 'concluido' });

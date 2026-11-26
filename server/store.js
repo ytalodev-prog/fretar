@@ -185,8 +185,10 @@ async function deleteAviso(id, { autorKey, status } = {}) {
     return true;
   }
 
-  const rows = autorKey && status
-    ? await sql`DELETE FROM fretar_avisos WHERE id = ${id} AND autor_key = ${autorKey} AND status = ${status} RETURNING id`
+  const rows = autorKey
+    ? status
+      ? await sql`DELETE FROM fretar_avisos WHERE id = ${id} AND autor_key = ${autorKey} AND status = ${status} RETURNING id`
+      : await sql`DELETE FROM fretar_avisos WHERE id = ${id} AND autor_key = ${autorKey} RETURNING id`
     : status
       ? await sql`DELETE FROM fretar_avisos WHERE id = ${id} AND status = ${status} RETURNING id`
       : await sql`DELETE FROM fretar_avisos WHERE id = ${id} RETURNING id`;
