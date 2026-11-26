@@ -74,6 +74,11 @@
     return `Até ${aviso.horarioFim}`;
   }
 
+  function formatarData(data) {
+    const [ano, mes, dia] = data.split('-');
+    return `${dia}/${mes}/${ano}`;
+  }
+
   function tempo(iso) {
     const seg = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
     if (seg < 60) return 'agora mesmo';
@@ -236,6 +241,9 @@
         h('span', { class: 'etiqueta' }, PRIORIDADE[aviso.prioridade])),
       h('h3', null, aviso.titulo),
       h('p', { class: 'mensagem' }, aviso.mensagem),
+      aviso.dataProgramada && h('p', { class: 'aviso-programacao' },
+        h('span', null, 'Data programada:'),
+        h('strong', null, formatarData(aviso.dataProgramada))),
       (aviso.horarioInicio || aviso.horarioFim) && h('p', { class: 'aviso-horario' },
         h('span', null, 'Horário necessário:'),
         h('strong', null, resumoHorario(aviso))),
@@ -251,6 +259,7 @@
     const erro = h('p', { class: 'erro', role: 'alert' });
     const titulo = h('input', { class: 'entrada-texto', id: 'titulo', type: 'text', maxlength: 80, required: true, placeholder: 'Ex.: Entrega de material' });
     const mensagem = h('textarea', { class: 'entrada-texto', id: 'mensagem', maxlength: 600, required: true, placeholder: 'Conte o que a portaria precisa saber ou fazer.' });
+    const dataProgramada = h('input', { class: 'entrada-texto', id: 'data-programada', name: 'dataProgramada', type: 'date' });
     const horarioInicio = h('input', { class: 'entrada-texto', id: 'horario-inicio', name: 'horarioInicio', type: 'time' });
     const horarioFim = h('input', { class: 'entrada-texto', id: 'horario-fim', name: 'horarioFim', type: 'time' });
     const contador = h('span', { class: 'dica contador' }, '0 / 600');
@@ -272,10 +281,13 @@
         try {
           await api('/api/avisos', { method: 'POST', corpo: {
             titulo: titulo.value, mensagem: mensagem.value,
+            dataProgramada: dataProgramada.value,
             horarioInicio: horarioInicio.value, horarioFim: horarioFim.value,
             prioridade: form.elements.prioridade.value } });
           form.reset(); contador.textContent = '0 / 600';
-          avisar('Aviso enviado para a portaria.', 'ok-t');
+          avisar(dataProgramada.value
+            ? `Aviso programado para ${formatarData(dataProgramada.value)}.`
+            : 'Aviso enviado para a portaria.', 'ok-t');
           await atualizar();
         } catch (e) { erro.textContent = e.message; }
         botao.disabled = false;
@@ -283,6 +295,10 @@
     },
       h('div', { class: 'campo' }, h('label', { for: 'titulo' }, 'Título'), titulo),
       h('div', { class: 'campo' }, h('label', { for: 'mensagem' }, 'Mensagem'), mensagem, contador),
+      h('fieldset', { class: 'agendamento' },
+        h('legend', null, 'Agendar envio'),
+        h('p', { class: 'dica' }, 'Opcional. A Portaria verá o aviso a partir desta data, no horário de Brasília. Sem data, ele aparece imediatamente.'),
+        h('div', { class: 'campo' }, h('label', { for: 'data-programada' }, 'Data de envio'), dataProgramada)),
       h('fieldset', { class: 'horarios' },
         h('legend', null, 'Horário necessário (opcional)'),
         h('p', { class: 'dica' }, 'Informe um horário ou um intervalo para a portaria se programar.'),

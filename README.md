@@ -55,12 +55,12 @@ fretar/
 | POST | `/api/login` | público | Entra (notificante ou portaria) |
 | POST | `/api/logout` | logado | Sai |
 | GET | `/api/me` | logado | Dados da sessão |
-| GET | `/api/avisos` | logado | Portaria: todos. Notificante: só os seus |
-| POST | `/api/avisos` | notificante | Envia aviso |
+| GET | `/api/avisos` | logado | Portaria: avisos disponíveis. Notificante: só os seus |
+| POST | `/api/avisos` | notificante | Envia agora ou agenda um aviso |
 | PATCH | `/api/avisos/:id` | portaria | Muda status: `novo`, `visto`, `concluido` |
-| DELETE | `/api/avisos/:id` | dono (se `novo`) ou portaria (se `concluido`) | Apaga aviso |
+| DELETE | `/api/avisos/:id` | dono | Apaga aviso próprio |
 
-Ao enviar um aviso, o notificante pode informar `horarioInicio` e/ou `horarioFim` no formato `HH:MM`; os dois campos são opcionais e aparecem em destaque no mural. A portaria recebe um alerta visual quando chegam avisos novos. Para receber também notificações do navegador em segundo plano, use **Ativar alertas** no mural e permita as notificações; mantenha o Fretar aberto.
+Ao enviar um aviso, o notificante pode informar `dataProgramada` no formato `AAAA-MM-DD`; nesse caso, a Portaria só o verá a partir dessa data, considerando o horário de Brasília (`America/Sao_Paulo`). Sem data, o aviso aparece imediatamente. Também pode informar `horarioInicio` e/ou `horarioFim` no formato `HH:MM`; os horários são opcionais e aparecem em destaque no mural. A Portaria recebe um alerta visual quando avisos novos ficam disponíveis. Para receber também notificações do navegador em segundo plano, use **Ativar alertas** no mural e permita as notificações; mantenha o Fretar aberto.
 
 ## Configuração local
 
@@ -71,7 +71,7 @@ Copie `.env.example` para `.env` para configurar a porta e a conta da Portaria. 
 Vercel fornece HTTPS automaticamente para os domínios `*.vercel.app` e para domínios personalizados configurados no projeto. O navegador usa cookies `Secure` nas implantações Vercel. O backend usa uma função Node e Neon PostgreSQL, pois o disco de uma função Vercel não é persistente.
 
 1. Crie um projeto PostgreSQL no Neon (pode ser pela integração Neon do Marketplace da Vercel) e conecte-o ao projeto Vercel.
-2. Importe este repositório na Vercel usando a raiz do projeto. O [vercel.json](./vercel.json) seleciona `public` como saída estática e `api/[...path].js` como função Node; `npm run build` executa os testes.
+2. Importe este repositório na Vercel usando a raiz do projeto. O [vercel.json](./vercel.json) seleciona `public` como saída estática e reescreve as rotas da API para a função Node em `api/index.js`; `npm run build` executa os testes.
 3. Configure estas variáveis no projeto Vercel, em **Production** e também em **Preview** se for testar prévias:
 
    - `DATABASE_URL`: URL de conexão PostgreSQL do Neon. A integração Neon da Vercel com o prefixo `DATABASE` fornece `DATABASE_POSTGRES_PRISMA_URL`; o backend também reconhece essa variável automaticamente.

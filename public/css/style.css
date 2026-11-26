@@ -232,6 +232,11 @@ textarea.entrada-texto { resize: vertical; min-height: 7rem; }
 }
 .painel.fixo { position: sticky; top: 5.5rem; }
 .contador { text-align: right; }
+.agendamento { border: 1px solid var(--linha); border-radius: 12px; padding: .8rem; margin: 0 0 1rem; }
+.agendamento legend { font-weight: 700; padding: 0 .25rem; }
+.agendamento > .dica { margin-bottom: .65rem; }
+.agendamento .campo { margin: 0; }
+.agendamento input { min-width: 0; }
 .horarios { border: 1px solid var(--linha); border-radius: 12px; padding: .8rem; margin: 0 0 1rem; }
 .horarios legend { font-weight: 700; padding: 0 .25rem; }
 .horarios > .dica { margin-bottom: .65rem; }
@@ -293,6 +298,11 @@ textarea.entrada-texto { resize: vertical; min-height: 7rem; }
 .etiqueta { font-size: .8rem; font-weight: 700; padding: .1rem .55rem; border-radius: 999px; background: var(--cor-fundo); color: var(--cor-texto); }
 .aviso h3 { font-size: 1.2rem; overflow-wrap: anywhere; }
 .aviso .mensagem { color: var(--tinta); white-space: pre-wrap; overflow-wrap: anywhere; max-width: 60ch; }
+.aviso-programacao {
+  display: flex; flex-wrap: wrap; gap: .2rem .4rem; align-items: center;
+  margin: 0; padding: .45rem .65rem; border-radius: 9px;
+  background: var(--cor-fundo); color: var(--cor-texto); font-size: .92rem;
+}
 .aviso-horario {
   display: flex; flex-wrap: wrap; gap: .2rem .4rem; align-items: center;
   margin: 0; padding: .45rem .65rem; border-radius: 9px;

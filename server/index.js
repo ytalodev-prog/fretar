@@ -5,6 +5,7 @@ const path = require('node:path');
 const config = require('./config');
 const store = require('./store');
 const auth = require('./auth');
+const { dateInBrazil, isValidIsoDate } = require('./date');
 
 config.validateProductionConfig();
 const storeReady = store.load().then(() => null, (error) => error);
@@ -132,7 +133,7 @@ async function handleApi(req, res, url) {
 
   if (route === '/api/avisos' && method === 'GET') {
     const avisos = session.role === 'portaria'
-      ? await store.listAvisos()
+      ? await store.listAvisos({ dataDisponivelAte: dateInBrazil() })
       : await store.listAvisos({ autorKey: store.normalizeLogin(session.login) });
     return sendJson(res, 200, { avisos });
   }
@@ -144,13 +145,16 @@ async function handleApi(req, res, url) {
     const mensagem = String(body.mensagem ?? '').trim();
     const horarioInicio = String(body.horarioInicio ?? '').trim();
     const horarioFim = String(body.horarioFim ?? '').trim();
+    const dataProgramada = String(body.dataProgramada ?? '').trim();
     const prioridade = PRIORIDADES.includes(body.prioridade) ? body.prioridade : 'normal';
     if (titulo.length < 3 || titulo.length > 80) return fail(res, 400, 'O título deve ter de 3 a 80 caracteres.');
     if (mensagem.length < 1 || mensagem.length > 600) return fail(res, 400, 'A mensagem deve ter de 1 a 600 caracteres.');
     if ((horarioInicio && !HORARIO_RE.test(horarioInicio)) || (horarioFim && !HORARIO_RE.test(horarioFim))) {
       return fail(res, 400, 'Informe os horários no formato HH:MM.');
     }
-    const aviso = await store.createAviso({ autor: session.login, titulo, mensagem, horarioInicio, horarioFim, prioridade });
+    if (dataProgramada && !isValidIsoDate(dataProgramada)) return fail(res, 400, 'Informe uma data válida.');
+    if (dataProgramada && dataProgramada < dateInBrazil()) return fail(res, 400, 'A data programada não pode ser anterior a hoje.');
+    const aviso = await store.createAviso({ autor: session.login, titulo, mensagem, horarioInicio, horarioFim, dataProgramada, prioridade });
     return sendJson(res, 201, { aviso });
   }
 
@@ -158,6 +162,9 @@ async function handleApi(req, res, url) {
   if (match) {
     const aviso = await store.getAviso(Number(match[1]));
     if (!aviso) return fail(res, 404, 'Aviso não encontrado.');
+    if (session.role === 'portaria' && aviso.dataProgramada && aviso.dataProgramada > dateInBrazil()) {
+      return fail(res, 404, 'Aviso não encontrado.');
+    }
 
     if (method === 'PATCH') {
       if (session.role !== 'portaria') return fail(res, 403, 'Só a portaria pode alterar o andamento do aviso.');

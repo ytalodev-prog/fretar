@@ -12,6 +12,8 @@ const config = require('../server/config');
 config.DATA_DIR = tmp;
 config.DATABASE_URL = '';
 const server = require('../server/index');
+const store = require('../server/store');
+const { dateInBrazil, isValidIsoDate } = require('../server/date');
 const previousVercel = process.env.VERCEL;
 process.env.VERCEL = '';
 const vercelHandler = require('../api/index');
@@ -122,6 +124,39 @@ test('horários opcionais do aviso validam o formato HH:MM', async () => {
   assert.equal(semHorario.status, 201);
   assert.equal(semHorario.data.aviso.horarioInicio, '');
   assert.equal(semHorario.data.aviso.horarioFim, '');
+  assert.equal(semHorario.data.aviso.dataProgramada, '');
+});
+
+test('data programada usa o calendário de São Paulo e só libera o aviso no dia definido', async () => {
+  assert.equal(dateInBrazil(new Date('2026-12-24T02:59:59Z')), '2026-12-23');
+  assert.equal(dateInBrazil(new Date('2026-12-24T03:00:00Z')), '2026-12-24');
+  assert.equal(isValidIsoDate('2026-12-24'), true);
+  assert.equal(isValidIsoDate('2026-02-30'), false);
+
+  const dono = await call('POST', '/api/register', { login: 'Setor agendador', password: 'segredo1' });
+  const portaria = await call('POST', '/api/login', { login: 'Portaria', password: config.PORTARIA_PASSWORD });
+  const invalida = await call('POST', '/api/avisos', {
+    titulo: 'Data inválida', mensagem: 'Teste', dataProgramada: '2026-02-30',
+  }, dono.cookie);
+  assert.equal(invalida.status, 400);
+  const passada = await call('POST', '/api/avisos', {
+    titulo: 'Data passada', mensagem: 'Teste', dataProgramada: '2000-01-01',
+  }, dono.cookie);
+  assert.equal(passada.status, 400);
+
+  const programado = await call('POST', '/api/avisos', {
+    titulo: 'Aviso futuro', mensagem: 'Aparece na data marcada', dataProgramada: '2999-12-31',
+  }, dono.cookie);
+  assert.equal(programado.status, 201);
+  assert.equal(programado.data.aviso.dataProgramada, '2999-12-31');
+
+  const meus = await call('GET', '/api/avisos', null, dono.cookie);
+  assert.ok(meus.data.avisos.some((aviso) => aviso.id === programado.data.aviso.id));
+  const recebidos = await call('GET', '/api/avisos', null, portaria.cookie);
+  assert.ok(!recebidos.data.avisos.some((aviso) => aviso.id === programado.data.aviso.id));
+  assert.equal((await call('PATCH', `/api/avisos/${programado.data.aviso.id}`, { status: 'visto' }, portaria.cookie)).status, 404);
+  assert.ok(!(await store.listAvisos({ dataDisponivelAte: '2999-12-30' })).some((aviso) => aviso.id === programado.data.aviso.id));
+  assert.ok((await store.listAvisos({ dataDisponivelAte: '2999-12-31' })).some((aviso) => aviso.id === programado.data.aviso.id));
 });
 
 test('notificante so ve os proprios avisos e rotas exigem login', async () => {

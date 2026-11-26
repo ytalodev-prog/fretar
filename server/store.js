@@ -35,6 +35,9 @@ function fromAvisoRow(row) {
     mensagem: row.mensagem,
     horarioInicio: row.horario_inicio ? String(row.horario_inicio).slice(0, 5) : '',
     horarioFim: row.horario_fim ? String(row.horario_fim).slice(0, 5) : '',
+    dataProgramada: row.data_programada
+      ? (row.data_programada instanceof Date ? row.data_programada.toISOString().slice(0, 10) : String(row.data_programada).slice(0, 10))
+      : '',
     prioridade: row.prioridade,
     status: row.status,
     criadoEm: new Date(row.created_at).toISOString(),
@@ -63,6 +66,7 @@ async function load() {
         mensagem TEXT NOT NULL,
         horario_inicio TIME,
         horario_fim TIME,
+        data_programada DATE,
         prioridade TEXT NOT NULL,
         status TEXT NOT NULL,
         created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -71,6 +75,7 @@ async function load() {
     `;
     await sql`ALTER TABLE fretar_avisos ADD COLUMN IF NOT EXISTS horario_inicio TIME`;
     await sql`ALTER TABLE fretar_avisos ADD COLUMN IF NOT EXISTS horario_fim TIME`;
+    await sql`ALTER TABLE fretar_avisos ADD COLUMN IF NOT EXISTS data_programada DATE`;
     return;
   }
 
@@ -106,19 +111,37 @@ async function createUser(login, passwordHash) {
   return fromUserRow(rows[0]);
 }
 
-async function listAvisos({ autorKey } = {}) {
+async function listAvisos({ autorKey, dataDisponivelAte } = {}) {
   if (!sql) {
-    const list = autorKey ? db.avisos.filter((aviso) => aviso.autorKey === autorKey) : db.avisos;
+    const list = db.avisos.filter((aviso) =>
+      (!autorKey || aviso.autorKey === autorKey) &&
+      (!dataDisponivelAte || !aviso.dataProgramada || aviso.dataProgramada <= dataDisponivelAte));
     return [...list].sort((a, b) => b.criadoEm.localeCompare(a.criadoEm));
   }
 
-  const rows = autorKey
-    ? await sql`SELECT * FROM fretar_avisos WHERE autor_key = ${autorKey} ORDER BY created_at DESC, id DESC`
-    : await sql`SELECT * FROM fretar_avisos ORDER BY created_at DESC, id DESC`;
+  let rows;
+  if (autorKey && dataDisponivelAte) {
+    rows = await sql`
+      SELECT * FROM fretar_avisos
+      WHERE autor_key = ${autorKey}
+        AND (data_programada IS NULL OR data_programada <= ${dataDisponivelAte}::date)
+      ORDER BY created_at DESC, id DESC
+    `;
+  } else if (autorKey) {
+    rows = await sql`SELECT * FROM fretar_avisos WHERE autor_key = ${autorKey} ORDER BY created_at DESC, id DESC`;
+  } else if (dataDisponivelAte) {
+    rows = await sql`
+      SELECT * FROM fretar_avisos
+      WHERE data_programada IS NULL OR data_programada <= ${dataDisponivelAte}::date
+      ORDER BY created_at DESC, id DESC
+    `;
+  } else {
+    rows = await sql`SELECT * FROM fretar_avisos ORDER BY created_at DESC, id DESC`;
+  }
   return rows.map(fromAvisoRow);
 }
 
-async function createAviso({ autor, titulo, mensagem, horarioInicio, horarioFim, prioridade }) {
+async function createAviso({ autor, titulo, mensagem, horarioInicio, horarioFim, dataProgramada, prioridade }) {
   const autorKey = normalizeLogin(autor);
   if (!sql) {
     const agora = new Date().toISOString();
@@ -130,6 +153,7 @@ async function createAviso({ autor, titulo, mensagem, horarioInicio, horarioFim,
       mensagem,
       horarioInicio,
       horarioFim,
+      dataProgramada,
       prioridade,
       status: 'novo',
       criadoEm: agora,
@@ -142,8 +166,8 @@ async function createAviso({ autor, titulo, mensagem, horarioInicio, horarioFim,
 
   const rows = await sql`
     INSERT INTO fretar_avisos
-      (autor, autor_key, titulo, mensagem, horario_inicio, horario_fim, prioridade, status)
-    VALUES (${autor}, ${autorKey}, ${titulo}, ${mensagem}, ${horarioInicio || null}, ${horarioFim || null}, ${prioridade}, 'novo')
+      (autor, autor_key, titulo, mensagem, horario_inicio, horario_fim, data_programada, prioridade, status)
+    VALUES (${autor}, ${autorKey}, ${titulo}, ${mensagem}, ${horarioInicio || null}, ${horarioFim || null}, ${dataProgramada || null}, ${prioridade}, 'novo')
     RETURNING *
   `;
   return fromAvisoRow(rows[0]);
@@ -220,10 +244,10 @@ async function importLegacyData(data) {
   for (const aviso of data.avisos) {
     queries.push(sql`
       INSERT INTO fretar_avisos
-        (id, autor, autor_key, titulo, mensagem, horario_inicio, horario_fim, prioridade, status, created_at, updated_at)
+        (id, autor, autor_key, titulo, mensagem, horario_inicio, horario_fim, data_programada, prioridade, status, created_at, updated_at)
       VALUES
         (${aviso.id}, ${aviso.autor}, ${aviso.autorKey}, ${aviso.titulo}, ${aviso.mensagem},
-         ${aviso.horarioInicio || null}, ${aviso.horarioFim || null},
+         ${aviso.horarioInicio || null}, ${aviso.horarioFim || null}, ${aviso.dataProgramada || null},
          ${aviso.prioridade}, ${aviso.status}, ${aviso.criadoEm}, ${aviso.atualizadoEm})
     `);
   }
