@@ -48,6 +48,9 @@ async function callVercel(method, path, body, cookie) {
 }
 
 test('fluxo completo pelo handler Vercel: notificante avisa e portaria trata', async () => {
+  const caminhoInvalido = await callVercel('GET', '../health');
+  assert.equal(caminhoInvalido.status, 400);
+
   const cad = await callVercel('POST', 'register', { login: 'Almoxarifado B', password: 'segredo1' });
   assert.equal(cad.status, 201);
   const dono = cad.cookie;

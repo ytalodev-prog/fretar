@@ -11,10 +11,16 @@ if (process.env.VERCEL === '1' && !config.DATABASE_URL) {
   const server = require('../server/index');
   handler = (req, res) => {
     const url = new URL(req.url, 'http://localhost');
-    const path = url.searchParams.get('path');
-    if (path !== null) {
+    const apiPath = url.searchParams.get('path');
+    if (apiPath !== null) {
+      const segments = apiPath.split('/');
+      if (segments.some((segment) => !segment || segment === '.' || segment === '..')) {
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+        res.end(JSON.stringify({ erro: 'Rota da API inválida.' }));
+        return;
+      }
       url.searchParams.delete('path');
-      url.pathname = `/api/${path}`;
+      url.pathname = `/api/${segments.join('/')}`;
       req.url = `${url.pathname}${url.search}`;
     }
     server.emit('request', req, res);
