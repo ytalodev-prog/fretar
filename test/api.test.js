@@ -80,6 +80,7 @@ test('notificante pode apagar avisos próprios em qualquer andamento, mas não a
 
   const alheio = await call('POST', '/api/avisos', { titulo: 'Aviso alheio', mensagem: 'Teste' }, outro.cookie);
   assert.equal((await call('DELETE', `/api/avisos/${alheio.data.aviso.id}`, null, dono.cookie)).status, 403);
+  assert.equal((await call('DELETE', `/api/avisos/${alheio.data.aviso.id}`, null, portaria.cookie)).status, 200);
 });
 
 test('horários opcionais do aviso validam o formato HH:MM', async () => {

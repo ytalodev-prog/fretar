@@ -173,11 +173,11 @@ async function handleApi(req, res, url) {
         const apagado = await store.deleteAviso(aviso.id, { autorKey: aviso.autorKey });
         return apagado ? sendJson(res, 200, { ok: true }) : fail(res, 404, 'Aviso não encontrado.');
       }
-      if (session.role === 'portaria' && aviso.status === 'concluido') {
-        const apagado = await store.deleteAviso(aviso.id, { status: 'concluido' });
-        return apagado ? sendJson(res, 200, { ok: true }) : fail(res, 403, 'Você não pode apagar esse aviso.');
+      if (session.role === 'portaria') {
+        const apagado = await store.deleteAviso(aviso.id);
+        return apagado ? sendJson(res, 200, { ok: true }) : fail(res, 404, 'Aviso não encontrado.');
       }
-      return fail(res, 403, dono ? 'Esse aviso já foi visto pela portaria e não pode mais ser apagado.' : 'Você não pode apagar esse aviso.');
+      return fail(res, 403, 'Você não pode apagar esse aviso.');
     }
   }
 

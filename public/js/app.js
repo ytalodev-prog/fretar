@@ -15,6 +15,7 @@
     timer: null,
   };
   let ui = {}; // referencias a elementos que mudam sem redesenhar a tela inteira
+  let versaoAvisos = 0;
 
   const PRIORIDADE = { informativo: 'Informativo', normal: 'Normal', urgente: 'Urgente' };
   const PESO = { urgente: 3, normal: 2, informativo: 1 };
@@ -194,7 +195,9 @@
   }
 
   async function carregarAvisos() {
+    const versao = ++versaoAvisos;
     const { avisos } = await api('/api/avisos');
+    if (versao !== versaoAvisos) return;
     if (state.usuario.role === 'portaria') {
       const ids = new Set(avisos.map((a) => a.id));
       if (state.vistos) {
@@ -227,9 +230,6 @@
   // ---------- Cartao de aviso ----------
   function cartao(aviso, acoes) {
     const papel = state.usuario.role;
-    const orientacaoExclusao = papel === 'portaria' && aviso.status !== 'concluido'
-      ? 'Para apagar pela portaria, primeiro conclua este aviso.'
-      : '';
     return h('li', { class: `aviso p-${aviso.prioridade} ${aviso.status === 'concluido' ? 'concluido' : ''} ${state.recentes.has(aviso.id) ? 'recem' : ''}` },
       h('div', { class: 'aviso-topo' },
         papel === 'portaria' && h('span', { class: 'origem' }, aviso.autor),
@@ -242,7 +242,6 @@
       h('div', { class: 'aviso-rodape' },
         h('span', { class: 'tempo', title: dataCompleta(aviso.criadoEm) }, tempo(aviso.criadoEm)),
         h('span', { class: `status ${aviso.status}` }, rotuloStatus(papel, aviso.status))),
-      orientacaoExclusao && h('p', { class: 'regra-exclusao' }, orientacaoExclusao),
       acoes && acoes.length ? h('div', { class: 'acoes' }, acoes) : null);
   }
 
@@ -319,9 +318,11 @@
   }
 
   async function apagar(aviso) {
-    if (!confirm(`Apagar o aviso “${aviso.titulo}”?`)) return;
+    const origem = state.usuario.role === 'portaria' ? ` de ${aviso.autor}` : '';
+    if (!confirm(`Apagar o aviso “${aviso.titulo}”${origem}?`)) return;
     try {
       await api(`/api/avisos/${aviso.id}`, { method: 'DELETE' });
+      versaoAvisos++;
       state.avisos = state.avisos.filter((item) => item.id !== aviso.id);
       avisar('Aviso apagado.', 'ok-t');
       state.usuario.role === 'portaria' ? desenharMural() : desenharMeusAvisos();
@@ -421,8 +422,9 @@
       botao.disabled = true;
       try {
         const { aviso: atualizado } = await api(`/api/avisos/${a.id}`, { method: 'PATCH', corpo: { status } });
+        versaoAvisos++;
         state.avisos = state.avisos.map((item) => item.id === atualizado.id ? atualizado : item);
-        state.filtro = status;
+        state.filtro = 'todos';
         state.recentes.delete(a.id);
         avisar(msg, 'ok-t');
         desenharMural();
@@ -431,10 +433,11 @@
       finally { botao.disabled = false; }
     };
     const btn = (classe, texto, fn) => h('button', { class: `btn ${classe}`, type: 'button', onclick: fn }, texto);
-    if (a.status === 'novo') return [btn('', 'Marcar como visto', mudar('visto', 'Marcado como visto.')), btn('btn-verde', 'Concluir', mudar('concluido', 'Aviso concluído.'))];
-    if (a.status === 'visto') return [btn('btn-verde', 'Concluir', mudar('concluido', 'Aviso concluído.')), btn('btn-claro', 'Voltar para novo', mudar('novo', 'Aviso voltou para novos.'))];
+    const apagarBotao = btn('btn-perigo', 'Apagar', () => apagar(a));
+    if (a.status === 'novo') return [btn('', 'Marcar como visto', mudar('visto', 'Marcado como visto.')), btn('btn-verde', 'Concluir', mudar('concluido', 'Aviso concluído.')), apagarBotao];
+    if (a.status === 'visto') return [btn('btn-verde', 'Concluir', mudar('concluido', 'Aviso concluído.')), btn('btn-claro', 'Voltar para novo', mudar('novo', 'Aviso voltou para novos.')), apagarBotao];
     return [btn('btn-claro', 'Reabrir', mudar('visto', 'Aviso reaberto.')),
-      btn('btn-perigo', 'Apagar', () => apagar(a))];
+      apagarBotao];
   }
 
   // ---------- Inicio ----------
