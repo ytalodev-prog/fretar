@@ -12,10 +12,16 @@ const config = require('../server/config');
 config.DATA_DIR = tmp;
 config.DATABASE_URL = '';
 const server = require('../server/index');
+const vercelHandler = require('../api/index');
+const vercelServer = require('node:http').createServer(vercelHandler);
 
 let base;
-before(() => new Promise((ok) => server.listen(0, () => { base = `http://127.0.0.1:${server.address().port}`; ok(); })));
-after(() => { server.close(); fs.rmSync(tmp, { recursive: true, force: true }); });
+let vercelBase;
+before(async () => {
+  await new Promise((ok) => server.listen(0, () => { base = `http://127.0.0.1:${server.address().port}`; ok(); }));
+  await new Promise((ok) => vercelServer.listen(0, () => { vercelBase = `http://127.0.0.1:${vercelServer.address().port}`; ok(); }));
+});
+after(() => { server.close(); vercelServer.close(); fs.rmSync(tmp, { recursive: true, force: true }); });
 
 async function call(method, url, body, cookie) {
   const headers = {};
@@ -26,15 +32,26 @@ async function call(method, url, body, cookie) {
   return { status: r.status, data: await r.json().catch(() => ({})), cookie: set ? set.split(';')[0] : null };
 }
 
-test('fluxo completo: notificante avisa e portaria trata', async () => {
-  const cad = await call('POST', '/api/register', { login: 'Almoxarifado B', password: 'segredo1' });
+async function callVercel(method, path, body, cookie) {
+  const headers = {};
+  if (body) headers['Content-Type'] = 'application/json';
+  if (cookie) headers.Cookie = cookie;
+  const r = await fetch(`${vercelBase}/api/index?path=${encodeURIComponent(path)}`, {
+    method, headers, body: body ? JSON.stringify(body) : undefined,
+  });
+  const set = r.headers.get('set-cookie');
+  return { status: r.status, data: await r.json().catch(() => ({})), cookie: set ? set.split(';')[0] : null };
+}
+
+test('fluxo completo pelo handler Vercel: notificante avisa e portaria trata', async () => {
+  const cad = await callVercel('POST', 'register', { login: 'Almoxarifado B', password: 'segredo1' });
   assert.equal(cad.status, 201);
   const dono = cad.cookie;
 
-  assert.equal((await call('POST', '/api/register', { login: 'almoxarifado b', password: 'outra123' })).status, 409);
-  assert.equal((await call('POST', '/api/register', { login: 'portaria', password: 'qualquer1' })).status, 409);
+  assert.equal((await callVercel('POST', 'register', { login: 'almoxarifado b', password: 'outra123' })).status, 409);
+  assert.equal((await callVercel('POST', 'register', { login: 'portaria', password: 'qualquer1' })).status, 409);
 
-  const novo = await call('POST', '/api/avisos', {
+  const novo = await callVercel('POST', 'avisos', {
     titulo: 'Entrega', mensagem: 'Chegou material', horarioInicio: '08:30', horarioFim: '10:00', prioridade: 'urgente',
   }, dono);
   assert.equal(novo.status, 201);
@@ -42,27 +59,28 @@ test('fluxo completo: notificante avisa e portaria trata', async () => {
   assert.equal(novo.data.aviso.horarioFim, '10:00');
   const id = novo.data.aviso.id;
 
-  assert.equal((await call('POST', '/api/login', { login: 'Portaria', password: 'errada' })).status, 401);
-  const por = await call('POST', '/api/login', { login: 'Portaria', password: config.PORTARIA_PASSWORD });
+  assert.equal((await callVercel('POST', 'login', { login: 'Portaria', password: 'errada' })).status, 401);
+  const por = await callVercel('POST', 'login', { login: 'Portaria', password: config.PORTARIA_PASSWORD });
   assert.equal(por.status, 200);
   assert.equal(por.data.usuario.role, 'portaria');
 
-  const lista = await call('GET', '/api/avisos', null, por.cookie);
+  const lista = await callVercel('GET', 'avisos', null, por.cookie);
   assert.equal(lista.data.avisos.length, 1);
   assert.equal(lista.data.avisos[0].autor, 'Almoxarifado B');
 
-  assert.equal((await call('PATCH', `/api/avisos/${id}`, { status: 'visto' }, dono)).status, 403);
-  assert.equal((await call('PATCH', `/api/avisos/${id}`, { status: 'visto' }, por.cookie)).status, 200);
-  assert.equal((await call('POST', '/api/avisos', { titulo: 'x', mensagem: 'y' }, por.cookie)).status, 403);
+  assert.equal((await callVercel('PATCH', `avisos/${id}`, { status: 'visto' }, dono)).status, 403);
+  assert.equal((await callVercel('PATCH', `avisos/${id}`, { status: 'visto' }, por.cookie)).status, 200);
+  assert.equal((await callVercel('POST', 'avisos', { titulo: 'x', mensagem: 'y' }, por.cookie)).status, 403);
 
-  const meus = await call('GET', '/api/avisos', null, dono);
+  const meus = await callVercel('GET', 'avisos', null, dono);
   assert.equal(meus.data.avisos[0].status, 'visto');
-  assert.equal((await call('PATCH', `/api/avisos/${id}`, { status: 'concluido' }, por.cookie)).status, 200);
-  assert.equal((await call('GET', '/api/avisos', null, dono)).data.avisos[0].status, 'concluido');
-  assert.equal((await call('PATCH', `/api/avisos/${id}`, { status: 'visto' }, por.cookie)).status, 200);
-  assert.equal((await call('GET', '/api/avisos', null, dono)).data.avisos[0].status, 'visto');
-  assert.equal((await call('PATCH', `/api/avisos/${id}`, { status: 'concluido' }, por.cookie)).status, 200);
-  assert.equal((await call('DELETE', `/api/avisos/${id}`, null, por.cookie)).status, 200);
+  assert.equal((await callVercel('PATCH', `avisos/${id}`, { status: 'concluido' }, por.cookie)).status, 200);
+  assert.equal((await callVercel('GET', 'avisos', null, dono)).data.avisos[0].status, 'concluido');
+  assert.equal((await callVercel('PATCH', `avisos/${id}`, { status: 'visto' }, por.cookie)).status, 200);
+  assert.equal((await callVercel('GET', 'avisos', null, dono)).data.avisos[0].status, 'visto');
+  assert.equal((await callVercel('PATCH', `avisos/${id}`, { status: 'concluido' }, por.cookie)).status, 200);
+  assert.equal((await callVercel('DELETE', `avisos/${id}`, null, por.cookie)).status, 403);
+  assert.equal((await callVercel('DELETE', `avisos/${id}`, null, dono)).status, 200);
 });
 
 test('notificante pode apagar avisos próprios em qualquer andamento, mas não avisos alheios', async () => {
@@ -80,7 +98,8 @@ test('notificante pode apagar avisos próprios em qualquer andamento, mas não a
 
   const alheio = await call('POST', '/api/avisos', { titulo: 'Aviso alheio', mensagem: 'Teste' }, outro.cookie);
   assert.equal((await call('DELETE', `/api/avisos/${alheio.data.aviso.id}`, null, dono.cookie)).status, 403);
-  assert.equal((await call('DELETE', `/api/avisos/${alheio.data.aviso.id}`, null, portaria.cookie)).status, 200);
+  assert.equal((await call('DELETE', `/api/avisos/${alheio.data.aviso.id}`, null, portaria.cookie)).status, 403);
+  assert.equal((await call('DELETE', `/api/avisos/${alheio.data.aviso.id}`, null, outro.cookie)).status, 200);
 });
 
 test('horários opcionais do aviso validam o formato HH:MM', async () => {

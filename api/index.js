@@ -9,7 +9,16 @@ if (process.env.VERCEL === '1' && !config.DATABASE_URL) {
   };
 } else {
   const server = require('../server/index');
-  handler = (req, res) => server.emit('request', req, res);
+  handler = (req, res) => {
+    const url = new URL(req.url, 'http://localhost');
+    const path = url.searchParams.get('path');
+    if (path !== null) {
+      url.searchParams.delete('path');
+      url.pathname = `/api/${path}`;
+      req.url = `${url.pathname}${url.search}`;
+    }
+    server.emit('request', req, res);
+  };
 }
 
 module.exports = handler;

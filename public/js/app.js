@@ -318,8 +318,7 @@
   }
 
   async function apagar(aviso) {
-    const origem = state.usuario.role === 'portaria' ? ` de ${aviso.autor}` : '';
-    if (!confirm(`Apagar o aviso “${aviso.titulo}”${origem}?`)) return;
+    if (!confirm(`Apagar o aviso “${aviso.titulo}”?`)) return;
     try {
       await api(`/api/avisos/${aviso.id}`, { method: 'DELETE' });
       versaoAvisos++;
@@ -433,11 +432,9 @@
       finally { botao.disabled = false; }
     };
     const btn = (classe, texto, fn) => h('button', { class: `btn ${classe}`, type: 'button', onclick: fn }, texto);
-    const apagarBotao = btn('btn-perigo', 'Apagar', () => apagar(a));
-    if (a.status === 'novo') return [btn('', 'Marcar como visto', mudar('visto', 'Marcado como visto.')), btn('btn-verde', 'Concluir', mudar('concluido', 'Aviso concluído.')), apagarBotao];
-    if (a.status === 'visto') return [btn('btn-verde', 'Concluir', mudar('concluido', 'Aviso concluído.')), btn('btn-claro', 'Voltar para novo', mudar('novo', 'Aviso voltou para novos.')), apagarBotao];
-    return [btn('btn-claro', 'Reabrir', mudar('visto', 'Aviso reaberto.')),
-      apagarBotao];
+    if (a.status === 'novo') return [btn('', 'Marcar como visto', mudar('visto', 'Marcado como visto.')), btn('btn-verde', 'Concluir', mudar('concluido', 'Aviso concluído.'))];
+    if (a.status === 'visto') return [btn('btn-verde', 'Concluir', mudar('concluido', 'Aviso concluído.')), btn('btn-claro', 'Voltar para novo', mudar('novo', 'Aviso voltou para novos.'))];
+    return [btn('btn-claro', 'Reabrir', mudar('visto', 'Aviso reaberto.'))];
   }
 
   // ---------- Inicio ----------
