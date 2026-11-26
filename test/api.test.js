@@ -53,7 +53,6 @@ test('fluxo completo: notificante avisa e portaria trata', async () => {
 
   assert.equal((await call('PATCH', `/api/avisos/${id}`, { status: 'visto' }, dono)).status, 403);
   assert.equal((await call('PATCH', `/api/avisos/${id}`, { status: 'visto' }, por.cookie)).status, 200);
-  assert.equal((await call('DELETE', `/api/avisos/${id}`, null, dono)).status, 403); // ja visto
   assert.equal((await call('POST', '/api/avisos', { titulo: 'x', mensagem: 'y' }, por.cookie)).status, 403);
 
   const meus = await call('GET', '/api/avisos', null, dono);
@@ -64,6 +63,23 @@ test('fluxo completo: notificante avisa e portaria trata', async () => {
   assert.equal((await call('GET', '/api/avisos', null, dono)).data.avisos[0].status, 'visto');
   assert.equal((await call('PATCH', `/api/avisos/${id}`, { status: 'concluido' }, por.cookie)).status, 200);
   assert.equal((await call('DELETE', `/api/avisos/${id}`, null, por.cookie)).status, 200);
+});
+
+test('notificante pode apagar avisos próprios em qualquer andamento, mas não avisos alheios', async () => {
+  const dono = await call('POST', '/api/register', { login: 'Setor dono', password: 'segredo1' });
+  const outro = await call('POST', '/api/register', { login: 'Outro setor', password: 'segredo1' });
+  const portaria = await call('POST', '/api/login', { login: 'Portaria', password: config.PORTARIA_PASSWORD });
+
+  const visto = await call('POST', '/api/avisos', { titulo: 'Aviso visto', mensagem: 'Teste' }, dono.cookie);
+  assert.equal((await call('PATCH', `/api/avisos/${visto.data.aviso.id}`, { status: 'visto' }, portaria.cookie)).status, 200);
+  assert.equal((await call('DELETE', `/api/avisos/${visto.data.aviso.id}`, null, dono.cookie)).status, 200);
+
+  const concluido = await call('POST', '/api/avisos', { titulo: 'Aviso concluído', mensagem: 'Teste' }, dono.cookie);
+  assert.equal((await call('PATCH', `/api/avisos/${concluido.data.aviso.id}`, { status: 'concluido' }, portaria.cookie)).status, 200);
+  assert.equal((await call('DELETE', `/api/avisos/${concluido.data.aviso.id}`, null, dono.cookie)).status, 200);
+
+  const alheio = await call('POST', '/api/avisos', { titulo: 'Aviso alheio', mensagem: 'Teste' }, outro.cookie);
+  assert.equal((await call('DELETE', `/api/avisos/${alheio.data.aviso.id}`, null, dono.cookie)).status, 403);
 });
 
 test('horários opcionais do aviso validam o formato HH:MM', async () => {

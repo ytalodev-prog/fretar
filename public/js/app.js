@@ -227,9 +227,9 @@
   // ---------- Cartao de aviso ----------
   function cartao(aviso, acoes) {
     const papel = state.usuario.role;
-    const orientacaoExclusao = papel === 'portaria'
-      ? aviso.status !== 'concluido' ? 'Para apagar pela portaria, primeiro conclua este aviso.' : ''
-      : aviso.status !== 'novo' ? 'Este aviso já foi visto; somente a portaria pode apagá-lo após concluir.' : '';
+    const orientacaoExclusao = papel === 'portaria' && aviso.status !== 'concluido'
+      ? 'Para apagar pela portaria, primeiro conclua este aviso.'
+      : '';
     return h('li', { class: `aviso p-${aviso.prioridade} ${aviso.status === 'concluido' ? 'concluido' : ''} ${state.recentes.has(aviso.id) ? 'recem' : ''}` },
       h('div', { class: 'aviso-topo' },
         papel === 'portaria' && h('span', { class: 'origem' }, aviso.autor),
@@ -315,12 +315,17 @@
       return;
     }
     ui.lista.replaceChildren(...state.avisos.map((a) => cartao(a,
-      a.status === 'novo' ? [h('button', { class: 'btn btn-perigo', type: 'button', onclick: () => apagar(a) }, 'Apagar aviso')] : [])));
+      [h('button', { class: 'btn btn-perigo', type: 'button', onclick: () => apagar(a) }, 'Apagar aviso')])));
   }
 
   async function apagar(aviso) {
     if (!confirm(`Apagar o aviso “${aviso.titulo}”?`)) return;
-    try { await api(`/api/avisos/${aviso.id}`, { method: 'DELETE' }); avisar('Aviso apagado.'); await atualizar(); }
+    try {
+      await api(`/api/avisos/${aviso.id}`, { method: 'DELETE' });
+      state.avisos = state.avisos.filter((item) => item.id !== aviso.id);
+      avisar('Aviso apagado.', 'ok-t');
+      state.usuario.role === 'portaria' ? desenharMural() : desenharMeusAvisos();
+    }
     catch (e) { avisar(e.message, 'erro-t'); }
   }
 
@@ -411,19 +416,25 @@
   }
 
   function acoesPortaria(a) {
-    const mudar = (status, msg) => async () => {
-      try { await api(`/api/avisos/${a.id}`, { method: 'PATCH', corpo: { status } }); avisar(msg, 'ok-t'); await atualizar(); }
+    const mudar = (status, msg) => async (event) => {
+      const botao = event.currentTarget;
+      botao.disabled = true;
+      try {
+        const { aviso: atualizado } = await api(`/api/avisos/${a.id}`, { method: 'PATCH', corpo: { status } });
+        state.avisos = state.avisos.map((item) => item.id === atualizado.id ? atualizado : item);
+        state.filtro = status;
+        state.recentes.delete(a.id);
+        avisar(msg, 'ok-t');
+        desenharMural();
+      }
       catch (e) { avisar(e.message, 'erro-t'); }
+      finally { botao.disabled = false; }
     };
     const btn = (classe, texto, fn) => h('button', { class: `btn ${classe}`, type: 'button', onclick: fn }, texto);
     if (a.status === 'novo') return [btn('', 'Marcar como visto', mudar('visto', 'Marcado como visto.')), btn('btn-verde', 'Concluir', mudar('concluido', 'Aviso concluído.'))];
     if (a.status === 'visto') return [btn('btn-verde', 'Concluir', mudar('concluido', 'Aviso concluído.')), btn('btn-claro', 'Voltar para novo', mudar('novo', 'Aviso voltou para novos.'))];
     return [btn('btn-claro', 'Reabrir', mudar('visto', 'Aviso reaberto.')),
-      btn('btn-perigo', 'Apagar', async () => {
-        if (!confirm(`Apagar o aviso “${a.titulo}” de ${a.autor}?`)) return;
-        try { await api(`/api/avisos/${a.id}`, { method: 'DELETE' }); avisar('Aviso apagado.'); await atualizar(); }
-        catch (e) { avisar(e.message, 'erro-t'); }
-      })];
+      btn('btn-perigo', 'Apagar', () => apagar(a))];
   }
 
   // ---------- Inicio ----------
