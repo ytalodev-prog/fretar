@@ -18,6 +18,7 @@
   --azul-escuro: #0A3F7C;
   --erro: #B3261E;
   --erro-fundo: #FBE9E7;
+  --toast-fundo: #12233F;
 
   --titulo: "Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
   --texto: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -311,7 +312,7 @@ textarea.entrada-texto { resize: vertical; min-height: 7rem; }
 
 /* ---------- Avisos rapidos ---------- */
 .toasts { position: fixed; right: 1rem; bottom: 1rem; display: grid; gap: .5rem; z-index: 20; max-width: min(92vw, 22rem); }
-.toast { background: var(--tinta); color: #fff; padding: .75rem 1rem; border-radius: 12px; box-shadow: 0 6px 20px rgba(18,35,63,.3); border-left: 6px solid var(--azul); }
+.toast { background: var(--toast-fundo); color: #fff; padding: .75rem 1rem; border-radius: 12px; box-shadow: 0 6px 20px rgba(18,35,63,.3); border-left: 6px solid var(--azul); }
 .toast.erro-t { border-left-color: var(--erro); }
 .toast.ok-t { border-left-color: var(--verde); }
 .toast { font-weight: 600; }
