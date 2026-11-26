@@ -227,6 +227,9 @@
   // ---------- Cartao de aviso ----------
   function cartao(aviso, acoes) {
     const papel = state.usuario.role;
+    const orientacaoExclusao = papel === 'portaria'
+      ? aviso.status !== 'concluido' ? 'Para apagar pela portaria, primeiro conclua este aviso.' : ''
+      : aviso.status !== 'novo' ? 'Este aviso já foi visto; somente a portaria pode apagá-lo após concluir.' : '';
     return h('li', { class: `aviso p-${aviso.prioridade} ${aviso.status === 'concluido' ? 'concluido' : ''} ${state.recentes.has(aviso.id) ? 'recem' : ''}` },
       h('div', { class: 'aviso-topo' },
         papel === 'portaria' && h('span', { class: 'origem' }, aviso.autor),
@@ -239,6 +242,7 @@
       h('div', { class: 'aviso-rodape' },
         h('span', { class: 'tempo', title: dataCompleta(aviso.criadoEm) }, tempo(aviso.criadoEm)),
         h('span', { class: `status ${aviso.status}` }, rotuloStatus(papel, aviso.status))),
+      orientacaoExclusao && h('p', { class: 'regra-exclusao' }, orientacaoExclusao),
       acoes && acoes.length ? h('div', { class: 'acoes' }, acoes) : null);
   }
 
